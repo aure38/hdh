@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <title>Vids</title>
+        <script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>
+        <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
+        <script type="text/javascript">
+
+    $(document).ready(function() {
+        $('#example').DataTable( {
+        "ajax" : "./js_vids",
+        "info" : true,
+        "lengthChange" : true,
+        "paging" : true,
+        "pageLength": 30,
+        "ordering" : true,
+        "order" : [[ 0, 'desc' ], [ 1, 'asc' ]],
+
+        "columns": [
+            { "data": "file_ts_creation" },
+            { "data": "media_title" },
+            { "data": "file_tags" },
+            { "data": "media_title_form" },
+            { "data": "file_audiotracks" },
+            { "data": "file_subtitles" },
+            { "data": "file_size_GB" }
+        ]
+        } ) ;
+    } ) ;
+
+    </script>
+  </head>
+
+  <body>
+    <table id="example" class="display" cellspacing="1">  <!---  width="100%">--->
+            <thead>
+                <tr>
+                    <th width="8%" align="middle">Date File</th>
+                    <th width="35%" align="left">Name</th>
+                    <th width="12%" align="left">Tags</th>
+                    <th width="30%" align="left">Form</th>
+                    <th width="5%" align="middle">Audio</th>
+                    <th width="5%" align="middle">Subtitles</th>
+                    <th width="5%" align="middle">Size GB</th>
+                </tr>
+            </thead>
+        </table>
+  </body>
+</html>
