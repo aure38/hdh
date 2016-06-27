@@ -50,9 +50,7 @@ for tmpT in liste_tables_a_verif :
     if tmpT not in liste_tables_in_db :
         print("Table %s non trouvee dans RDB, Creation" % tmpT)
         tmpRep = r.db(ops._my_rdb_base).table_create(tmpT).run(ops.rdb)
-        if tmpRep.get("tables_created", 0) == 1 :
-            print(tmpRep)
-        else :
+        if tmpRep.get("tables_created", 0) != 1 :
             print('ERREUR Durant creation')
             exit()
 print('OK Tables : %s ' % str(liste_tables_a_verif))
