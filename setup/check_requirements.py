@@ -25,7 +25,6 @@ sys.path.append('./')
 print("\n-------- Ops4app ------------------------------------------")
 import rethinkdb as r
 from aclib.ops4app import Ops4app
-import json
 
 ops = Ops4app(appli_uname="check.requirements")
 print("RDB : IP=%s | Base=%s | File=%s" % (ops._my_rdb_IP, ops._my_rdb_base, ops._my_config_file))
@@ -34,24 +33,22 @@ if not ops.isOK() :
     exit()
 
 print("\n-------- RDB ------------------------------------------")
-liste_bases = list()
 try :
-    liste_bases = r.db_list().run(ops.rdb)
+    if ops._my_rdb_base not in r.db_list().run(ops.rdb) :
+        print("ERREUR Base %s non trouvee dans RDB" % ops._my_rdb_base)
+        exit()
+    else:
+        print("OK Base : %s" % ops._my_rdb_base)
 except :
     print("ERREUR Durant connexion a RDB")
     exit()
-tmpT = ops.config.get('rdb.base', '')
-if tmpT not in liste_bases :
-    print("ERREUR Base %s non trouvee dans RDB")
-    exit()
-print("OK Base : %s" % tmpT)
 
 liste_tables_a_verif = [ops.config.get('table_cfg_in_rdb', 'ERREUR-CONFIG'), ops.config.get('table_logs_in_rdb', 'ERREUR-LOGS')]
 liste_tables_in_db = r.table_list().run(ops.rdb)
 for tmpT in liste_tables_a_verif :
     if tmpT not in liste_tables_in_db :
         print("Table %s non trouvee dans RDB, CREATION")
-        tmpRep = r.db(ops.config.get('rdb.base', '')).table_create(tmpT).run(ops.rdb)
+        tmpRep = r.db(ops._my_rdb_base).table_create(tmpT).run(ops.rdb)
         if tmpRep.get("tables_created", 0) == 1 :
             print(tmpRep)
         else :
