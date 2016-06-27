@@ -32,7 +32,8 @@ print("RDB OK = %s" % ops.isOK())
 if not ops.isOK() :
     exit()
 
-print("\n-------- RDB ------------------------------------------")
+
+print("\n-------- RDB structure------------------------------------------")
 try :
     if ops._my_rdb_base not in r.db_list().run(ops.rdb) :
         print("ERREUR Base %s non trouvee dans RDB" % ops._my_rdb_base)
@@ -43,11 +44,11 @@ except :
     print("ERREUR Durant connexion a RDB")
     exit()
 
-liste_tables_a_verif = [ops.config.get('table_cfg_in_rdb', 'ERREUR-CONFIG'), ops.config.get('table_logs_in_rdb', 'ERREUR-LOGS')]
+liste_tables_a_verif = [ops._my_config_table_in_rdb, ops._my_logs_table_in_rdb]
 liste_tables_in_db = r.table_list().run(ops.rdb)
 for tmpT in liste_tables_a_verif :
     if tmpT not in liste_tables_in_db :
-        print("Table %s non trouvee dans RDB, CREATION")
+        print("Table %s non trouvee dans RDB, Creation" % tmpT)
         tmpRep = r.db(ops._my_rdb_base).table_create(tmpT).run(ops.rdb)
         if tmpRep.get("tables_created", 0) == 1 :
             print(tmpRep)
