@@ -73,7 +73,7 @@ class ServImm(object):
         dbconn = self.myops.rdb_get_lock()
         if dbconn is not None :   # Get documents from DB
             # -- QUERY : Creation curseur puis Date, en ne garde que n jours
-            curseur = r.table(self.myops.config.get('rdb.table.annon', 'immoannonces'))  # .max('ts_collected').to_json()
+            curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
             if int(pNbJours) > 0 :
                 curseur = curseur.filter(lambda row : row["ts_updated"].to_epoch_time().gt(r.now().to_epoch_time().add(r.expr(-3600*24*int(pNbJours)))))
 
@@ -221,8 +221,6 @@ class ServImm(object):
         if pIDH != '' :
             dbconn = self.myops.rdb_get_lock()
             if dbconn is not None :
-                # c = r.connect(host='192.168.1.66', port=28015, db='acdc', auth_key="", timeout=20)
-                # curseur = r.db('acdc').table('immoannonces')
                 curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
                 curseur = curseur.filter(r.row["id_hash"].eq(pIDH))
                 curseur = curseur.run(dbconn)
