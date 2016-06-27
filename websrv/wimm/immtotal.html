@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>
+    <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="/css/acdc.styles.css">
+
+    <script type="text/javascript">
+
+    $(document).ready(function() {
+        $('#example').DataTable( {
+        "ajax" : "./js_imm?pNbJours=0",
+        "info" : true,
+        "lengthChange" : true,
+        "paging" : true,
+        "pageLength": 10,
+        "ordering" : true,
+        "order" : [[ 0, 'desc' ], [ 1, 'asc' ]],
+
+        "columns": [
+            { "data": "ts_updated" },
+            { "data": "ts_published" },
+
+            { "data": "sources" },
+            { "data": "localite" },
+
+            { "data": "price" },
+            { "data": "surface" },
+
+            { "data": "title" },
+            { "data": "description" }
+        ]
+        } ) ;
+
+    } ) ;
+
+    </script>
+
+    <script type="text/javascript">
+    function submitForm(pID, pAction, pParam) {
+    var http = new XMLHttpRequest();
+    http.open("POST", "./js_imm_tag_annonce", true);
+    http.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+    http.send("pIDH=" + pID + "&pAction=" + pAction + "&pParam=" + pParam);
+    }
+    </script>
+
+  </head>
+
+  <body>
+    <table id="example" class="display" cellspacing="1">  <!---  width="100%">--->
+            <thead>
+                <tr>
+                    <th width="4%" align="middle">Updated</th>
+                    <th width="4%" align="middle">Published</th>
+
+                    <th width="8%" align="middle">Sources</th>
+                    <th width="8%" align="middle">Localite</th>
+
+                    <th width="4%" align="middle">Prix</th>
+                    <th width="4%" align="middle">Surf.</th>
+
+                    <th width="24%" align="middle">Titre</th>
+                    <th width="44%" align="middle">Description</th>
+                </tr>
+            </thead>
+
+        </table>
+  </body>
+</html>

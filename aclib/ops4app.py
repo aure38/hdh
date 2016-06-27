@@ -9,7 +9,7 @@ from pathlib import Path
 import json
 import threading
 
-# --- Avoir une instance de ops par thread : 1 conn rdb ne se partage pas entre des thread en // (la continuite coté server ne se fait pas)
+# --- RDB en mode exclu (1 instance de ops par thread : 1 conn rdb ) ou avec des lock/release car 1 ptr rdb ne se partage pas quand il est en cours de query
 class Ops4app :
     def __init__(self, appli_uname='default_app_uname') :
         self._my_appli_uname        = appli_uname
@@ -69,7 +69,7 @@ class Ops4app :
                     logging.info("Config ops4app not found in rdb, Pushed default")
 
             except Exception as e :
-                logging.error("Problem d'acces a RDB : %s" % str(e))
+                logging.critical("Problem d'acces a RDB : %s" % str(e))
                 self._isOK = False
 
         # -- Ici on a la config de ops4app qui est OK : overrides = script -> fichier json -> rdb

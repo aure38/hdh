@@ -1,11 +1,9 @@
-# coding: utf8
-
 import logging
 logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
 logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
 logging.getLogger("requests").setLevel(logging.WARNING) # On desactive les logs pour la librairie requests
 logging.getLogger("schedule").setLevel(logging.WARNING) # On desactive les logs pour la librairie schedule
-
+print("\nLoggers = %s" % str(logging.Logger.manager.loggerDict.keys()))
 
 print("\n-------- Exec & Path --------------------------------------")
 import os,sys
@@ -44,7 +42,7 @@ except :
     print("ERREUR Durant connexion a RDB")
     exit()
 
-liste_tables_a_verif = [ops._my_config_table_in_rdb, ops._my_logs_table_in_rdb]
+liste_tables_a_verif = [ops._my_config_table_in_rdb, ops._my_logs_table_in_rdb, 'vids', 'immoanno', 'immoimg']
 liste_tables_in_db = r.table_list().run(ops.rdb)
 for tmpT in liste_tables_a_verif :
     if tmpT not in liste_tables_in_db :
