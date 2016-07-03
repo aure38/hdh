@@ -261,15 +261,10 @@ class ServImm(object):
 
 
 if __name__ == '__main__':
-    # --- Logs : logging.Logger.manager.loggerDict.keys()
+    # --- Logs Definition  logging.Logger.manager.loggerDict.keys()
+    Level_of_logs = level=logging.INFO
     logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
-    logging.getLogger("requests").setLevel(logging.WARNING)
-    logging.getLogger("schedule").setLevel(logging.WARNING)
-    logging.getLogger("http").setLevel(logging.CRITICAL)
-    logging.getLogger("cherrypy").setLevel(logging.WARNING)
-    logging.getLogger("cherrypy.access").setLevel(logging.WARNING)
-    logging.getLogger("cherrypy.error").setLevel(logging.WARNING)
+    logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(name)s|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
 
     # -- PATH
     if 'websrv' in Path.cwd().parts[-1] :
@@ -291,6 +286,7 @@ if __name__ == '__main__':
                    '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
     cherrypy.tree.mount(ServStatic(), "/", config_root)
 
+
     # -------- SERVER VIDS --------
     config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix() },
                     '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
@@ -301,6 +297,14 @@ if __name__ == '__main__':
                     '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
     cherrypy.tree.mount(ServImm(), "/imm", config_immo)
 
+    # --- Loglevel pour CherryPy : A FAIRE ICI, une fois les serveurs mounted et avant le start
+    # logging.getLogger('cherrypy.access').setLevel(logging.WARNING)
+    # logging.getLogger('cherrypy.error').setLevel(logging.WARNING)
+    for log_mgt in logging.Logger.manager.loggerDict.keys() :
+        if 'cherrypy.access' in log_mgt :
+            logging.getLogger(log_mgt).setLevel(logging.WARNING)
+
     # -------- Lancement --------
     cherrypy.engine.start()
     cherrypy.engine.block()
+

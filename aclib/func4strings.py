@@ -67,11 +67,19 @@ class Func4strings:
             retour = re.sub(u" +", " ", retour).strip() # On enleve les espaces en trop
         return retour
 
+
+    @staticmethod
+    def cleanLangueFr(input_str) :
+        return Func4strings.strCleanSanitize(input_str, phtmlunescape=True, pLignesTabsGuillemets=True,
+                                             pNormalizeASCII=False,
+                                             pEnleveSignesSpeciaux=False, pLettreDigitPointTiret=False,
+                                             pLetterDigitTiretOnly=False, pBagOfWords=False)
     @staticmethod
     def cleanOnlyLetterDigit(input_str) :
-        return Func4strings.strCleanSanitize(input_str, phtmlunescape=True, pLignesTabsGuillemets=True, pNormalizeASCII=True, pEnleveSignesSpeciaux=False,
-                                             pLettreDigitPointTiret=False, pLetterDigitTiretOnly=True, pBagOfWords=False)
-
+        return Func4strings.strCleanSanitize(input_str, phtmlunescape=True, pLignesTabsGuillemets=True,
+                                             pNormalizeASCII=True,
+                                             pEnleveSignesSpeciaux=False, pLettreDigitPointTiret=False,
+                                             pLetterDigitTiretOnly=True, pBagOfWords=False)
     @staticmethod
     def strMultiReplace(subs, subject) :
         """Simultaneously perform all substitutions on the subject string.
