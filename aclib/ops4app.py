@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 from pytz import timezone
 from pathlib import Path
-import json
 import threading
+import pytoml
 
 # --- RDB en mode exclu (1 instance de ops par thread : 1 conn rdb ) ou avec des lock/release car 1 ptr rdb ne se partage pas quand il est en cours de query
 class Ops4app :
@@ -23,19 +23,35 @@ class Ops4app :
                             "idb.ip" : "127.0.0.1", "idb.port" : 8086, "idb.login" : "user", "idb.pwd" : "user",
                             "table_cfg_in_rdb" : "config", "table_logs_in_rdb" : "logs", "kpi_db_in_idb" : "hdhmon"})
 
-        # -- On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
-        fichier_path = Path('../hdh.cfg.json')
+        # # -- JSON : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
+        # fichier_path = Path('../hdh.cfg.json')
+        # try:
+        #     if fichier_path.exists() :
+        #         fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
+        #         fichier_json = json.load(fichier_obj)
+        #         fichier_obj.close()
+        #         self._my_config_file = fichier_path.as_posix()
+        #         for i in fichier_json :
+        #             if i.get('id', '') == 'ops4app' :
+        #                 o4a_defaut.update(i)
+        #             elif i.get('id', '') == self._my_appli_uname :
+        #                 self._my_config_from_file = dict(i)
+        # except Exception as e:
+        #     logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
+
+        # -- TOML : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
+        fichier_path = Path('../hdh.cfg.toml')
         try:
             if fichier_path.exists() :
                 fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
-                fichier_json = json.load(fichier_obj)
+                fichier_toml = pytoml.load(fichier_obj)
                 fichier_obj.close()
                 self._my_config_file = fichier_path.as_posix()
-                for i in fichier_json :
-                    if i.get('id', '') == 'ops4app' :
-                        o4a_defaut.update(i)
-                    elif i.get('id', '') == self._my_appli_uname :
-                        self._my_config_from_file = dict(i)
+                for nom in fichier_toml.keys() :
+                    if nom == 'ops4app' :
+                        o4a_defaut.update(fichier_toml[nom])
+                    elif nom == self._my_appli_uname :
+                        self._my_config_from_file = dict(fichier_toml[nom])
         except Exception as e:
             logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
 

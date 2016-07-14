@@ -288,13 +288,15 @@ if __name__ == '__main__':
 
 
     # -------- SERVER VIDS --------
-    config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix() },
-                    '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
+    config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix() }
+                    # '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() }
+                    }
     cherrypy.tree.mount(ServVid(), "/vid", config_vids)
 
     # -------- SERVER IMMO --------
-    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix() },
-                    '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
+    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix() }
+                    # '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() }
+                    }
     cherrypy.tree.mount(ServImm(), "/imm", config_immo)
 
     # --- Loglevel pour CherryPy : A FAIRE ICI, une fois les serveurs mounted et avant le start
