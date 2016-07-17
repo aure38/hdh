@@ -15,8 +15,8 @@ class ServStatic(object):
 class ServVid(object):
     def __init__(self):
         self.myops = Ops4app(appli_uname='websrv.vid')
-        self.my_liste_tags_distincts = list()
 
+    #TODO : a enlever
     @cherrypy.expose()
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
@@ -62,27 +62,27 @@ class ServVid(object):
             self.myops.rdb_release()
         return retourObj
 
+
     @cherrypy.expose()
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
-    def json_liste(self, _=""):
+    def json_liste(self, _="", usr_uname="aur"):
+        cherrypy.session['usr_uname'] = usr_uname
         retourObj = { }
 
         if self.myops.rdb_get_lock() is not None :
-            # --- Recup des tags presents dans la table
-            curseur = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
-            logging.info('Tags presents dans RDB = %s' % str(curseur))
 
-            self.my_liste_tags_distincts = list()
-            for tag in curseur :
-                self.my_liste_tags_distincts.append({'value':tag, 'text':tag})
-
-
-
-            # --- Recup des fichiers
-            curseur = r.table(self.myops.config['rdb.table.vids']).pluck('file.ts_creation', 'file.name_stem', 'file.tags', 'file.audiotracks', 'file.subtitles','file.size_GB', 'id')
+            # --- Requete avec JOINTURE sur les user tags
+            # En JS : r.db('hdh').table(self.myops.config['rdb.table.vids']).outerJoin(r.db('hdh').table("vids_users"), function(rowA,rowB) { return rowB('id').eq(rowA('id')).and(rowB.hasFields('tags_usr'))}).zip().limit(2)
+            curseur = r.table(self.myops.config['rdb.table.vids']).outer_join(r.table(self.myops.config['rdb.table.vids.users']), lambda rowA,rowB: rowB['id'].eq(rowA['id']).and_(rowB.has_fields('tags_usr'))).zip()
+            curseur = curseur.pluck('file.ts_creation', 'file.name_stem', 'file.tags', 'file.audiotracks', 'file.subtitles','file.size_GB', 'id', 'tags_usr')
             curseur = curseur.order_by(r.desc('file.ts_creation'), 'file.name_stem')
             curseur = curseur.run(self.myops.rdb)
+
+            # # --- Recup des fichiers sans les tags users
+            # curseur = r.table(self.myops.config['rdb.table.vids']).pluck('file.ts_creation', 'file.name_stem', 'file.tags', 'file.audiotracks', 'file.subtitles','file.size_GB', 'id')
+            # curseur = curseur.order_by(r.desc('file.ts_creation'), 'file.name_stem')
+            # curseur = curseur.run(self.myops.rdb)
             retourObj = { }
             data = list()
             for doc in curseur :
@@ -98,17 +98,80 @@ class ServVid(object):
                 #                '<button type="submit">GO</button>' \
                 #                '</form>'.format(str(doc['id']), propre)
                 # objj['file_link'] = '<a href="{0:s}" target="_blank">{1:s}</a>'.format(doc['file.pathfullname'], doc['file.name_stem'])
-                for dkey in sorted(doc) :
-                    if type(doc[dkey]) is str :
+
+                # -- tags pour les users : # dict( idusr -> [ tags ] )
+                liste_tags_str = liste_tags_selected = "["
+                if (doc.get('tags_usr') or None) is not None :
+                    if cherrypy.session['usr_uname'] in doc.get('tags_usr') :
+                        tagcount=0
+                        for tag in doc['tags_usr'][cherrypy.session['usr_uname']] :
+                            if tagcount > 0 :
+                                liste_tags_str += ','
+                                liste_tags_selected += ','
+                            tagcount += 1
+                            liste_tags_str += "{value:'%s', text:'%s'}" % (tag, tag)
+                            liste_tags_selected += "'%s'" % tag
+                liste_tags_str += ']'
+                liste_tags_selected += ']'
+                id_of_input = "input_usr_" + str(doc['id'])
+                code_htmljs  = '<input type="text" id="%s">' % id_of_input
+                # code_htmljs += '<button onclick="button_updt_tags_usr("%s", "%s",$(\'#%s\').val())">Svg</button>' % (cherrypy.session['usr_uname'], str(doc['id']), id_of_input)
+                code_htmljs += '<button onclick="button_updt_tags_usr(\'%s\', \'%s\', \'%s\')">Svg</button>' % (cherrypy.session['usr_uname'], str(doc['id']), id_of_input)
+                code_htmljs += '<script type="text/javascript">'
+                code_htmljs += "$('#%s').selectize({" % id_of_input
+                code_htmljs += "plugins: ['restore_on_backspace','remove_button', 'drag_drop'], "
+                code_htmljs += "delimiter: ',', "
+                code_htmljs += "options : %s, " % liste_tags_str
+                code_htmljs += "items : %s, " % liste_tags_selected
+                code_htmljs += "persist: true, "
+                code_htmljs += "create: function(input) { return { value: input, text: input } }"
+                code_htmljs += "});</script>"
+                objj['tags_usr'] = code_htmljs
+
+                for dkey in doc : # sorted(doc) :
+                    if dkey == 'tags_usr' :
+                        pass
+                        # if cherrypy.session['usr_uname'] in doc[dkey] :
+                        #     # objj['tags_usr'] = str(" ".join(sorted(doc[dkey])))
+                        #     liste_tags_str = liste_tags_selected = "["
+                        #     tagcount=0
+                        #     for tag in doc[dkey][cherrypy.session['usr_uname']] :
+                        #         if tagcount > 0 :
+                        #             liste_tags_str += ','
+                        #             liste_tags_selected += ','
+                        #         tagcount += 1
+                        #         liste_tags_str += "{value:'%s', text:'%s'}" % (tag, tag)
+                        #         liste_tags_selected += "'%s'" % tag
+                        #     liste_tags_str += ']'
+                        #     liste_tags_selected += ']'
+                        #
+                        #     id_of_input = "input_usr_" + str(doc['id'])
+                        #     code_htmljs  = '<input type="text" id="%s">' % id_of_input
+                        #     # code_htmljs += '<button onclick="button_updt_tags_usr("%s", "%s",$(\'#%s\').val())">Svg</button>' % (cherrypy.session['usr_uname'], str(doc['id']), id_of_input)
+                        #     code_htmljs += '<button onclick="button_updt_tags_usr(\'%s\', \'%s\', \'%s\')">Svg</button>' % (cherrypy.session['usr_uname'], str(doc['id']), id_of_input)
+                        #     code_htmljs += '<script type="text/javascript">'
+                        #     code_htmljs += "$('#%s').selectize({" % id_of_input
+                        #     code_htmljs += "plugins: ['restore_on_backspace','remove_button', 'drag_drop'], "
+                        #     code_htmljs += "delimiter: ',', "
+                        #     code_htmljs += "options : %s, " % liste_tags_str
+                        #     code_htmljs += "items : %s, " % liste_tags_selected
+                        #     code_htmljs += "persist: true, "
+                        #     code_htmljs += "create: function(input) { return { value: input, text: input } }"
+                        #     code_htmljs += "});</script>"
+                        #     objj['tags_usr'] = code_htmljs
+                        #     # logging.debug(code_htmljs)
+                    elif type(doc[dkey]) is str :
                         objj[str(dkey).replace(".","_")] = str(doc[dkey])
                     elif type(doc[dkey]) is datetime :
                         objj[str(dkey).replace(".","_")] = doc[dkey].strftime('%y-%m-%d')
                     elif type(doc[dkey]) is float :
                         objj[str(dkey).replace(".","_")] = round(doc[dkey], 2)
-                    elif type(doc[dkey]) is list :
-                        objj[str(dkey).replace(".","_")] = str(" ".join(sorted(doc[dkey])))
                     elif type(doc[dkey]) is int :
                         objj[str(dkey).replace(".","_")] = int(doc[dkey])
+                    elif type(doc[dkey]) is list :
+                        objj[str(dkey).replace(".","_")] = str(" ".join(sorted(doc[dkey])))
+                    elif type(doc[dkey]) is dict :
+                        objj[str(dkey).replace(".","_")] = str(doc[dkey])
                     else :
                         logging.error("Type de colonne non reconnu pour vid: %s" % str(type(doc[dkey])))
                         objj[str(dkey).replace(".","_")] = str(doc[dkey])
@@ -120,24 +183,40 @@ class ServVid(object):
     @cherrypy.expose()
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
-    def json_tags_distinct(self, _=""):
-        retourObj = list()
-        if self.myops.rdb_get_lock() is not None :
-            # --- Recup des tags presents dans la table
-            listetags = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
-            for tag in listetags :
-                retourObj.append({'value':tag, 'text':tag})
-            self.myops.rdb_release()
-        return retourObj
-        # retourObj = "["
-        # if self.myops.rdb_get_lock() is not None :
-        #     # --- Recup des tags presents dans la table
-        #     listetags = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
-        #     for tag in listetags :
-        #         retourObj += "{ value:'%s', text:'%s' } " % (tag,tag)
-        #     self.myops.rdb_release()
-        #     retourObj += "]"
-        # return retourObj
+    def json_tags_systm(self, _=""):
+        if cherrypy.session.get('tags_systm', default=None) is None :
+            retourObj = list()
+            if self.myops.rdb_get_lock() is not None :
+                # --- Recup des tags presents dans la table
+                listetags = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
+                for tag in listetags :
+                    retourObj.append({'value':tag, 'text':tag})
+                self.myops.rdb_release()
+            cherrypy.session['tags_systm'] = retourObj
+        else :
+            logging.debug("Utilisation du cache de session")
+        return cherrypy.session['tags_systm']
+
+    @cherrypy.expose()
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def js_updt_tags_usr(self, _="", usr_uname="", object_id="", str_tags_comma=""):
+        if usr_uname != "" and object_id != "" :
+            tags_obj = str_tags_comma.split(',')
+            if tags_obj[0] == "" :
+                tags_obj = []
+
+            if self.myops.rdb_get_lock() is not None :
+                curseur = r.table(self.myops.config['rdb.table.vids.users']).insert({"id": object_id, "tags_usr": {usr_uname: tags_obj}}, conflict='update').run(self.myops.rdb)
+                # # Update qui update un des items du dict qui contient les tags, sans effacer le dict en entier
+                # curseur = r.table(self.myops.config['rdb.table.vids.users']).get(object_id).update({"tags_usr": {usr_uname: tags_obj}}).run(self.myops.rdb)
+                # # -- Si l'objet n'est pas connu pas d'insert
+                # if curseur['skipped'] == 1 :
+                #     curseur = r.table(self.myops.config['rdb.table.vids.users']).insert({"id": object_id, "tags_usr": {usr_uname: tags_obj}})
+                logging.debug('Update tags : %s' % str(curseur))
+                self.myops.rdb_release()
+        return { 'answer' : "ok"}
+
 
 class ServImm(object):
     def __init__(self):
@@ -290,7 +369,7 @@ class ServImm(object):
         return retourObj
 
     @cherrypy.expose()
-    def js_imm_dump_annonce(self, pIDH='', pParam=''):
+    def js_imm_dump_annonce(self, pIDH=''):  # , pParam=''):
         retourObj = '<html lang="en"><head><meta charset="UTF-8"><title>Annonce</title></head><body>'
         retourObj += '<table>'
         tmpImages = ""
@@ -342,7 +421,7 @@ if __name__ == '__main__':
     # --- Logs Definition  logging.Logger.manager.loggerDict.keys()
     Level_of_logs = level=logging.INFO
     logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(name)s|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
+    logging.basicConfig(level=logging.DEBUG, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(name)s|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
 
     # -- PATH
     if 'websrv' in Path.cwd().parts[-1] :

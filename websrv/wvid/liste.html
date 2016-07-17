@@ -40,18 +40,17 @@
   </head>
 
   <body>
-    <table id="tbl_params">
+    <table id="tbl_params" border="1">
         <tr>
-            <td><b>Filtre tags&nbsp;</b></td>
-            <td><input type="text" id="input_tags"></td>
-        </tr>
-        <tr>
-            <td><b>Date du &nbsp;</b></td>
-            <td><input type="text" id="input_dateMin" size="8" value="00-01-01"> au <input type="text" id="input_dateMax" size="8" value="20-12-31"></td>
-        </tr>
+            <td width="15%" align="center">
+                <b>Date du &nbsp;</b>
+                <input type="text" STYLE="Text-ALIGN:center" id="input_dateMin" size="8" value="00-01-01"><b>&nbsp;&nbsp;au&nbsp;&nbsp;</b><input align="center" type="text" STYLE="Text-ALIGN:center" id="input_dateMax" size="8" value="20-12-31">
+            </td>
+            <td width="5%" align="right"><b>Tags Syst.&nbsp;</b></td>
+            <td width="20%"><input type="text" id="input_tags"></td>
 
-        <tr>
-            <td><button id="input_reload" onclick="button_refresh()">GO !</button></td>
+            <td width="5%" align="center"><b>User</b>&nbsp;&nbsp;<select id="input_user"><option value="aur">aur</option><option value="jit">jit</option><</select></td>
+            <td width="10%" align="center">&nbsp;&nbsp;&nbsp;<button id="input_reload" onclick="button_refresh()">Apply filters</button></td>
         </tr>
 
     </table>
@@ -83,12 +82,13 @@
     <table id="tbl_liste" class="display" cellspacing="1">  <!---  width="100%">--->
             <thead>
                 <tr>
-                    <th align="center">Date File</th>
-                    <th align="left">Tags</th>
-                    <th align="left">Name</th>
-                    <th align="middle">Audio</th>
-                    <th align="middle">Subtitles</th>
-                    <th align="middle">Size GB</th>
+                    <th align="center" width="10%">Date File</th>
+                    <th align="left" width="10%">Tags Syst</th>
+                    <th align="left" width="20%">Tags User</th>
+                    <th align="left" width="40%">Name</th>
+                    <th align="middle" width="5%">Audio</th>
+                    <th align="middle" width="5%">Subtitles</th>
+                    <th align="middle" width="5%">Size GB</th>
                     <!--<th width="8%" align="center">Date File</th>-->
                     <!--<th width="65%" align="left">Name</th>-->
                     <!--<th width="15%" align="left">Tags</th>-->
