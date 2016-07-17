@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <title>Vids</title>
+      <link rel="icon" type="image/gif" href="/images/favicon.gif" />
+        <script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>
+        <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
+
+        <script type="text/javascript" src="/jslib/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="/jslib/selectize.min.js"></script>
+        <link rel="stylesheet" href="/css/selectize.legacy.css">
+
+        <script type="text/javascript">
+
+    $(document).ready(function() {
+        $('#example').DataTable( {
+        "ajax" : "./js_liste",
+        "info" : true,
+        "lengthChange" : true,
+        "paging" : true,
+        "pageLength": 30,
+        "ordering" : true,
+        "order" : [[ 0, 'desc' ], [ 1, 'asc' ]],
+
+        "columns": [
+            { "data": "file_ts_creation" },
+            { "data": "media_title" },
+            { "data": "file_tags" },
+            { "data": "file_audiotracks" },
+            { "data": "file_subtitles" },
+            { "data": "file_size_GB" }
+        ]
+        } ) ;
+    } ) ;
+
+    </script>
+  </head>
+
+  <body>
+  <p>Hello</p>
+  <p><input type="text" id="id_du_input"></p>
+  <script type="text/javascript">
+    var eventHandler = function(lavaleur) {
+                        return function() {
+                            console.log(lavaleur, arguments);
+                            strLab = "" ;
+                            for ( var nom in arguments )  {
+                                strLab = strLab + " " + nom ;
+                            }
+                            document.getElementById('le_label').innerHTML = document.getElementById('id_du_input').value
+                        };
+                    };
+
+
+	$('#id_du_input').selectize({
+        plugins: ['restore_on_backspace','remove_button', 'drag_drop'],
+        delimiter: ',',
+        options : [{value:'choix1', text:'choix1'}, {value:'choix2', text:'choix2'}],
+        items : ['choix1'],
+        persist: true,
+        create: function(input) {
+            return { value: input, text: input }
+        },
+        onChange        : eventHandler('onChange'),
+        onBlur          : eventHandler('onBlur')
+    });
+</script>
+
+    <p><label id="le_label">---</label></p>
+
+  </body>
+</html>

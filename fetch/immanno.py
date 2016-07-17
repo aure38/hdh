@@ -611,7 +611,7 @@ def launch_fetcher(ops_ptr):
 if __name__ == '__main__':
     logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
     logging.addLevelName(logging.INFO-2, 'INFO2') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.basicConfig(level=logging.DEBUG, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
+    logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
     logging.getLogger("requests").setLevel(logging.WARNING) # On desactive les logs pour la librairie requests
     logging.getLogger("schedule").setLevel(logging.WARNING) # On desactive les logs pour la librairie schedule
     logging.info("Starting...")

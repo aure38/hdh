@@ -1,11 +1,11 @@
 import logging
 import cherrypy
-import os,sys
+import os,sys,re
 from pathlib import Path
 from datetime import datetime
 from pytz import timezone
 from aclib.ops4app import Ops4app
-import re
+from aclib.func4strings import Func4strings as f4s
 import rethinkdb as r
 
 class ServStatic(object):
@@ -15,6 +15,7 @@ class ServStatic(object):
 class ServVid(object):
     def __init__(self):
         self.myops = Ops4app(appli_uname='websrv.vid')
+        self.my_liste_tags_distincts = list()
 
     @cherrypy.expose()
     @cherrypy.tools.json_in()
@@ -60,6 +61,83 @@ class ServVid(object):
             retourObj["data"] = data
             self.myops.rdb_release()
         return retourObj
+
+    @cherrypy.expose()
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def json_liste(self, _=""):
+        retourObj = { }
+
+        if self.myops.rdb_get_lock() is not None :
+            # --- Recup des tags presents dans la table
+            curseur = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
+            logging.info('Tags presents dans RDB = %s' % str(curseur))
+
+            self.my_liste_tags_distincts = list()
+            for tag in curseur :
+                self.my_liste_tags_distincts.append({'value':tag, 'text':tag})
+
+
+
+            # --- Recup des fichiers
+            curseur = r.table(self.myops.config['rdb.table.vids']).pluck('file.ts_creation', 'file.name_stem', 'file.tags', 'file.audiotracks', 'file.subtitles','file.size_GB', 'id')
+            curseur = curseur.order_by(r.desc('file.ts_creation'), 'file.name_stem')
+            curseur = curseur.run(self.myops.rdb)
+            retourObj = { }
+            data = list()
+            for doc in curseur :
+                objj = dict()
+                # propre = re.sub(u"\(.*?\)", "", doc['file.name_stem'])
+                # propre = re.sub(u"\[.*?\]", "", propre)
+                # propre = re.sub(u"_.+_\d+_\d+_\d+_\d+_\d+", "", propre)
+                objj['media_title'] = f4s.strCleanSanitize(doc['file.name_stem'])
+                # objj['media_title_form'] = '<form action="/js_test?" method="get" enctype="multipart/form-data" target="_blank">' \
+                #                '<input type="hidden" name="action" value="UpdateName"/>' \
+                #                '<input type="hidden" name="id" value="{0:s}"/>' \
+                #                '<input type="text" size="60" name="media_title" value="{1:s}">' \
+                #                '<button type="submit">GO</button>' \
+                #                '</form>'.format(str(doc['id']), propre)
+                # objj['file_link'] = '<a href="{0:s}" target="_blank">{1:s}</a>'.format(doc['file.pathfullname'], doc['file.name_stem'])
+                for dkey in sorted(doc) :
+                    if type(doc[dkey]) is str :
+                        objj[str(dkey).replace(".","_")] = str(doc[dkey])
+                    elif type(doc[dkey]) is datetime :
+                        objj[str(dkey).replace(".","_")] = doc[dkey].strftime('%y-%m-%d')
+                    elif type(doc[dkey]) is float :
+                        objj[str(dkey).replace(".","_")] = round(doc[dkey], 2)
+                    elif type(doc[dkey]) is list :
+                        objj[str(dkey).replace(".","_")] = str(" ".join(sorted(doc[dkey])))
+                    elif type(doc[dkey]) is int :
+                        objj[str(dkey).replace(".","_")] = int(doc[dkey])
+                    else :
+                        logging.error("Type de colonne non reconnu pour vid: %s" % str(type(doc[dkey])))
+                        objj[str(dkey).replace(".","_")] = str(doc[dkey])
+                data.append(objj)
+            retourObj["data"] = data
+            self.myops.rdb_release()
+        return retourObj
+
+    @cherrypy.expose()
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def json_tags_distinct(self, _=""):
+        retourObj = list()
+        if self.myops.rdb_get_lock() is not None :
+            # --- Recup des tags presents dans la table
+            listetags = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
+            for tag in listetags :
+                retourObj.append({'value':tag, 'text':tag})
+            self.myops.rdb_release()
+        return retourObj
+        # retourObj = "["
+        # if self.myops.rdb_get_lock() is not None :
+        #     # --- Recup des tags presents dans la table
+        #     listetags = r.table(self.myops.config['rdb.table.vids'])['file.tags'].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
+        #     for tag in listetags :
+        #         retourObj += "{ value:'%s', text:'%s' } " % (tag,tag)
+        #     self.myops.rdb_release()
+        #     retourObj += "]"
+        # return retourObj
 
 class ServImm(object):
     def __init__(self):
@@ -282,21 +360,17 @@ if __name__ == '__main__':
                             })
 
     # -------- SERVER ROOT --------
-    config_root= { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wstatic").as_posix() },
-                   '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() } }
+    config_root= { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wstatic").as_posix() } }
     cherrypy.tree.mount(ServStatic(), "/", config_root)
 
 
     # -------- SERVER VIDS --------
-    config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix() }
-                    # '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() }
-                    }
+    config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix(),
+                                       'tools.sessions.on'  : True } }
     cherrypy.tree.mount(ServVid(), "/vid", config_vids)
 
     # -------- SERVER IMMO --------
-    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix() }
-                    # '/favicon.ico' : { 'tools.staticfile.on' : True, 'tools.staticfile.filename' : Path().cwd().joinpath("websrv").joinpath("webstatic").joinpath("images").joinpath("favicon.ico").as_posix() }
-                    }
+    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix() } }
     cherrypy.tree.mount(ServImm(), "/imm", config_immo)
 
     # --- Loglevel pour CherryPy : A FAIRE ICI, une fois les serveurs mounted et avant le start

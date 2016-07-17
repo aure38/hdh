@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <title>Vids</title>
+      <link rel="icon" type="image/gif" href="/images/favicon.gif" />
+        <script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>
+        <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
+
+        <script type="text/javascript" src="/jslib/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="/jslib/selectize.min.js"></script>
+        <link rel="stylesheet" href="/css/selectize.legacy.css">
+
+      <script type="text/javascript" src="/jslib/underscore-min.js"></script>
+      <script type="text/javascript" src="./liste.js"></script>
+        <!--<script type="text/javascript">-->
+
+    <!--$(document).ready(function() {-->
+        <!--$('#tbl_liste').DataTable( {-->
+        <!--"ajax" : "./js_liste",-->
+        <!--"info" : true,-->
+        <!--"lengthChange" : true,-->
+        <!--"paging" : true,-->
+        <!--"pageLength": 30,-->
+        <!--"ordering" : true,-->
+        <!--"order" : [[ 0, 'desc' ], [ 1, 'asc' ]],-->
+
+        <!--"columns": [-->
+            <!--{ "data": "file_ts_creation" },-->
+            <!--{ "data": "media_title" },-->
+            <!--{ "data": "file_tags" },-->
+            <!--{ "data": "file_audiotracks" },-->
+            <!--{ "data": "file_subtitles" },-->
+            <!--{ "data": "file_size_GB" }-->
+        <!--]-->
+        <!--} ) ;-->
+    <!--} ) ;-->
+
+    <!--</script>-->
+  </head>
+
+  <body>
+    <table id="tbl_params">
+        <tr>
+            <td><b>Filtre tags&nbsp;</b></td>
+            <td><input type="text" id="input_tags"></td>
+        </tr>
+        <tr>
+            <td><b>Date du &nbsp;</b></td>
+            <td><input type="text" id="input_dateMin" size="8" value="00-01-01"> au <input type="text" id="input_dateMax" size="8" value="20-12-31"></td>
+        </tr>
+
+        <tr>
+            <td><button id="input_reload" onclick="button_refresh()">GO !</button></td>
+        </tr>
+
+    </table>
+    <!--- http://selectize.github.io/selectize.js/ --->
+    <!--- https://github.com/selectize/selectize.js/blob/master/docs/usage.md --->
+    <!--<script type="text/javascript">-->
+        <!--var eventHandler = function(lavaleur) {-->
+            <!--return function() {-->
+                <!--console.log(lavaleur, arguments);-->
+                <!--document.getElementById('le_label').innerHTML = document.getElementById('id_du_input').value-->
+            <!--};-->
+        <!--};-->
+
+        <!--$('#input_tags').selectize({-->
+            <!--plugins: ['restore_on_backspace','remove_button', 'drag_drop'],-->
+            <!--delimiter: ',',-->
+            <!--options : [{value:'choix1', text:'choix1'}, {value:'choix2', text:'choix2'}],-->
+            <!--items : ['choix1'],-->
+            <!--persist: true,-->
+            <!--create: function(input) {-->
+                <!--return { value: input, text: input }-->
+            <!--},-->
+            <!--onChange        : eventHandler('onChange'),-->
+        <!--});-->
+    <!--</script>-->
+
+
+    <br>
+    <table id="tbl_liste" class="display" cellspacing="1">  <!---  width="100%">--->
+            <thead>
+                <tr>
+                    <th align="center">Date File</th>
+                    <th align="left">Tags</th>
+                    <th align="left">Name</th>
+                    <th align="middle">Audio</th>
+                    <th align="middle">Subtitles</th>
+                    <th align="middle">Size GB</th>
+                    <!--<th width="8%" align="center">Date File</th>-->
+                    <!--<th width="65%" align="left">Name</th>-->
+                    <!--<th width="15%" align="left">Tags</th>-->
+                    <!--<th width="4%" align="middle">Audio</th>-->
+                    <!--<th width="4%" align="middle">Subtitles</th>-->
+                    <!--<th width="4%" align="middle">Size GB</th>-->
+                </tr>
+            </thead>
+    </table>
+  </body>
+</html>
