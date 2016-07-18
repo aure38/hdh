@@ -398,7 +398,7 @@ class ServImm(object):
                         if tags0[cle] != '' and tags0[cle] != '0' :
                             if 'images_ids' in cle :
                                 for img_id in tags0[cle] :
-                                    lien = "./js_immo_image?pID=%s" % img_id
+                                    lien = "./js_imm_image?pID=%s" % img_id
                                     tmpImages += '<img src="%s" alt="">&nbsp;' % lien
                             elif cle not in ['codepostal', 'description', 'title', 'localite_stz', 'price', 'uploadby']:
                                 tmpFin += '<tr><td>'
