@@ -156,3 +156,4 @@ if __name__ == '__main__':
     myops = Ops4app(appli_uname='deamon.scan.vifiles')
     scan_vid_files(myops)
 
+    exit(0)
