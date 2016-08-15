@@ -50,11 +50,9 @@ function init_barre_haut() {
     // --- LE CHAMP DE SELECTION DES TAGS
     var eventHandler = function(lavaleur) {
         return function() {
-            //console.log(lavaleur, arguments);
-            //document.getElementById('le_label').innerHTML = document.getElementById('id_du_input').value
+        //console.log(lavaleur, arguments);
         };
     };
-
 }
 
 // -- Update des tags user
@@ -125,6 +123,7 @@ function creation_datatable() {
             }
         }
     );
+
     madatatable = $('#tbl_liste').DataTable( {
         //"ajax" : "./json_liste",
         "ajax": {
@@ -133,20 +132,19 @@ function creation_datatable() {
             //"usr_uname": $('#input_user').val()
             }
         },
-        "info" : true,
-        "lengthChange" : true,
-        "paging" : true,
-        "pageLength": 30,
-        "ordering" : true,
-        "order" : [[ 0, 'desc' ], [ 1, 'asc' ]],
-
-        "autoWidth": false,
-        "columns": [
-            { "data": "file_ts_creation", "width": "7%" },
-            { "data": "file_tags", "width": "18%" },
-            { "data": "tags_usr", "width": "18%" },
+        "info"          : true,
+        "lengthChange"  : true,
+        "paging"        : true,
+        "pageLength"    : 30,
+        "ordering"      : true,
+        "order"         : [[ 0, 'desc' ], [ 1, 'asc' ]],
+        "autoWidth"     : false,
+        "columns"       : [
+            { "data": "file_ts_creation",   "width": "7%" },
+            { "data": "file_tags",          "width": "18%" },
+            { "data": "tags_usr",           "width": "18%" },
             { "data": "media_title"},
-            { "data": "langs", "width": "8%" },
+            { "data": "langs",              "width": "8%" },
             { "data": "file_size_GB",       "width": "6%" },
             { "data": "button_save",        "width": "6%" }
         ]
@@ -167,7 +165,6 @@ function button_refresh() {
 
 // --- Quand la page est prete
 $(document).ready(function() {
-
     // -- Get user from session server
     $.getJSON(url="./js_read_session", data={"ch_key" : "selected_usr"}, success=function( data2 )
     {

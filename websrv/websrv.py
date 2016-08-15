@@ -2,11 +2,12 @@ import logging
 import cherrypy
 import os,sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime,timedelta
 from pytz import timezone
 from aclib.ops4app import Ops4app
 from aclib.func4strings import Func4strings as f4s
 import rethinkdb as r
+import hashlib
 
 class ServStatic(object):
     def __init__(self):
@@ -16,6 +17,7 @@ class ServVid(object):
     def __init__(self):
         self.myops = Ops4app(appli_uname='websrv.vid')
 
+    # ------- Recup de la liste globale
     @cherrypy.expose()
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
@@ -189,82 +191,157 @@ class ServVid(object):
     def js_read_session(self, _="", ch_key=""):
         return cherrypy.session.get(ch_key, default="")
 
-    @cherrypy.expose()
-    @cherrypy.tools.json_in()
-    @cherrypy.tools.json_out()
-    def dump_session(self, _=""):
-        retour = dict()
-        for i in cherrypy.session.keys() :
-            retour[i] = str(cherrypy.session[i])
-        return retour
-
-
-
+    # @cherrypy.expose()
+    # @cherrypy.tools.json_in()
+    # @cherrypy.tools.json_out()
+    # def dump_session(self, _=""):
+    #     retour = dict()
+    #     for i in cherrypy.session.keys() :
+    #         retour[i] = str(cherrypy.session[i])
+    #     return retour
 
 class ServImm(object):
     def __init__(self):
         self.myops = Ops4app(appli_uname='websrv.immo')
 
+    # ------- JSON : Recup des stats = DateMin DateMax CountAll CountSelected
     @cherrypy.expose()
     @cherrypy.tools.json_in()
     @cherrypy.tools.json_out()
-    def js_imm(self, _="", pNbJours="0", pTagIncludeOnly=",", pTagExclude=","):
-        retourObj = { }
-        dbconn = self.myops.rdb_get_lock()
-        if dbconn is not None :   # Get documents from DB
-            # -- QUERY : Creation curseur puis Date, en ne garde que n jours
-            curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
-            if int(pNbJours) > 0 :
-                curseur = curseur.filter(lambda row : row["ts_updated"].to_epoch_time().gt(r.now().to_epoch_time().add(r.expr(-3600*24*int(pNbJours)))))
+    def get_stats(self, _="", usr_uname="", nb_days="5"):
+        retourObj = dict()
+        if self.myops.rdb_get_lock() is not None :
+            DateMin  = r.table(self.myops.config['rdb.table.annon'])['ts_updated'].min().run(self.myops.rdb)
+            retourObj['DateMin'] = DateMin.astimezone(tz=timezone('Europe/Paris')).strftime('%y-%m-%d %H:%M')
+            DateMax  = r.table(self.myops.config['rdb.table.annon'])['ts_updated'].max().run(self.myops.rdb)
+            retourObj['DateMax'] = DateMax.astimezone(tz=timezone('Europe/Paris')).strftime('%y-%m-%d %H:%M')
 
-            # -- QUERY : on enleve les objets qui ne contiennent pas les includesOnly (si vide, on enleve rien)
-            p_liste_tags = list()
-            for itag in pTagIncludeOnly.split(",") :
-                if len(itag) > 2 :
-                    p_liste_tags.append(str(itag))
-            if len(p_liste_tags) > 0 :
-                curseur = curseur.filter(r.row['user_tags'].contains(lambda jstag: r.expr(p_liste_tags).contains(jstag)))
+            retourObj['CountAll'] = int(r.table(self.myops.config['rdb.table.annon']).count().run(self.myops.rdb))
+            DateLimite = DateMax - timedelta(days=int(nb_days))
+            retourObj['CountSelected'] = int(r.table(self.myops.config['rdb.table.annon']).filter(lambda row : row["ts_updated"].ge(DateLimite)).count().run(self.myops.rdb))
 
-            # -- QUERY : on enleve les objets qui contiennent les excludes
-            p_liste_tags2 = list()
-            for itag in pTagExclude.split(",") :
-                if len(itag) > 2 :
-                    p_liste_tags2.append(str(itag))
-            if len(p_liste_tags2) > 0 :
-                curseur = curseur.filter(r.row['user_tags'].contains(lambda jstag: r.expr(p_liste_tags2).contains(jstag)).not_())
+            DateMinSelect  = r.table(self.myops.config['rdb.table.annon']).filter(lambda row : row["ts_updated"].ge(DateLimite))['ts_updated'].min().run(self.myops.rdb)
+            retourObj['DateMinSelect'] = DateMinSelect.astimezone(tz=timezone('Europe/Paris')).strftime('%y-%m-%d %H:%M')
 
+            self.myops.rdb_release()
+        return retourObj
+
+    # ------- Recup des tags pour un user
+    @cherrypy.expose()
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def get_tags(self, _="", usr_uname=""):
+        retourObj = list()
+        if self.myops.rdb_get_lock() is not None :
+            if r.table(self.myops.config['rdb.table.annon.users'])['tags_usr'][usr_uname].count().run(self.myops.rdb) > 0 :
+                retourObj = r.table(self.myops.config['rdb.table.annon.users'])['tags_usr'][usr_uname].distinct().reduce(lambda left,right : left+right).distinct().run(self.myops.rdb)
+            self.myops.rdb_release()
+            if "---" not in retourObj :
+                retourObj.append("---")
+        cherrypy.session[usr_uname + '_tags_all_arr'] = retourObj
+        return retourObj
+
+    # ------- Recup de la liste globale
+    @cherrypy.expose()
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def get_liste(self, _="", usr_uname="", nb_days="5"):
+        retourObj = dict()
+        selected_usr = usr_uname
+        if self.myops.rdb_get_lock() is not None :
+            # --- Requete avec JOINTURE sur les user tags
+            DateMax  = r.table(self.myops.config['rdb.table.annon'])['ts_updated'].max().run(self.myops.rdb)
+            DateLimite = DateMax - timedelta(days=int(nb_days))
+            curseur = r.table(self.myops.config['rdb.table.annon']).filter(lambda row : row["ts_updated"].ge(DateLimite))
+            curseur = curseur.outer_join(r.table(self.myops.config['rdb.table.annon.users']).filter(lambda row : row["tags_usr"].keys().contains(selected_usr)), lambda rowA,rowB: rowB['id'].eq(rowA['id']).and_(rowB.has_fields('tags_usr'))).zip()
+            # Choix des champs a garder
+            #curseur = curseur.pluck('file.ts_creation', 'file.name_stem', 'file.tags', 'file.audiotracks', 'file.subtitles','file.size_GB', 'id', 'tags_usr')
             curseur = curseur.order_by(r.desc('ts_updated'), 'codepostal')
-            curseur = curseur.run(dbconn)
+            curseur = curseur.run(self.myops.rdb)
 
-            # -- Recup du retour
-            retourObj = { }
-            data = list()
+            #--- fabrication de la liste des tags existant pour tous les selectize (chqaue ligne)
+            liste_tags_connus = (cherrypy.session.get(usr_uname + '_tags_all_arr') or ['---'])
+            liste_tags_options_str = "["
+            tagcount=0
+            for tag in liste_tags_connus :
+                if tagcount > 0 :
+                    liste_tags_options_str += ','
+                tagcount += 1
+                liste_tags_options_str += "{value:'%s', text:'%s'}" % (tag, tag)
+            liste_tags_options_str += ']'
+
+            # --- boucle sur les lignes de la datatable
+            laliste = list()
             for doc in curseur :
                 objj = dict()
-                objj['localite'] = '<p align="center"><a href="https://www.google.fr/maps/place/%s" target="_blank">%s</a><br><b>%s</b></p>' % (doc.get('codepostal','00000'), doc.get('codepostal','00000'), doc.get('localite_stz','Ville inconnue'))
+                docidh = doc.get('id_hash') or hashlib.sha1(str(doc['id']).encode('utf-8')).hexdigest()
 
-                tmpURLinterne = "./js_imm_dump_annonce?pIDH=%s" % doc.get('id_hash', 'None')
-                objj['title'] =  '<p><b><a href="%s" title="%s" target="_blank">%s</a></b>&nbsp;' \
-                                 '<a href="%s" target="_blank">webs</a>' \
-                                 '<br><i>par %s</i></p>' % (tmpURLinterne, doc.get('description','No description'), doc.get('title','Titre non specifie'), doc.get('url_annonce','Url non trouvee'), doc.get('uploadby',''))
-                user_tags_defaut = ['arch', 'fav', 'jit', 'aur', 'ma1', 'ma2', 'ma3', 'ma4']
-                liste_user_tags = sorted(list(set(user_tags_defaut + doc.get('user_tags', []))))
-                for tag in liste_user_tags :
-                    if tag in doc.get('user_tags', []) :
-                        objj['title'] += '<button class="ac_button_usertag_full" onclick="javascript:submitForm(\'%s\', \'toggleusertag\', \'%s\');"><b>%s</b></button>&nbsp;' % (doc.get('id_hash', 'None'), tag,tag)
-                    else :
-                        objj['title'] += '<button class="ac_button_usertag_empty" onclick="javascript:submitForm(\'%s\', \'toggleusertag\', \'%s\');"><b>%s</b></button>&nbsp;' % (doc.get('id_hash', 'None'), tag,tag)
+                # -------- ts_updated
+                objj['ts_updated'] =  doc['ts_updated'].strftime('%y-%m-%d<br>%H:%M')
 
-                objj['price'] = '<p align="center">{:,d} k</p>'.format(int(round(doc.get('price',0)/1000,0)))
-                objj['surface'] = '<p align="center">%d</p>' % doc.get('surface',0)
+                # -------- localite
+                objj['localite'] = '<p align="center"><a href="https://www.google.fr/maps/place/%s" target="_blank">%s</a><br><b>%s</b></p>' % ((doc.get('codepostal') or '00000'), (doc.get('codepostal') or '00000'), (doc.get('localite_stz') or 'Ville inconnue'))
 
-                # -- Champ Description avec Images & Historique
+                # -------- tags_usr : seront inclus plus loin
+                liste_tags_selected = "["
+                if (doc.get('tags_usr') or None) is not None :
+                    if selected_usr in doc.get('tags_usr') :
+                        tagcount=0
+                        for tag in doc['tags_usr'][selected_usr] :
+                            if tagcount > 0 :
+                                liste_tags_selected += ','
+                            tagcount += 1
+                            liste_tags_selected += "'%s'" % tag
+                liste_tags_selected += ']'
+
+                # creation du code html avec SELECTIZE
+                id_of_input = "input_str" + docidh # "input_usr_" + str(doc['id'])
+                code_htmljs = '<div><input type="text" id="%s">' % id_of_input  # style="max-width:250px ;"
+                # code_htmljs += '<button onclick="button_updt_tags_usr("%s", "%s",$(\'#%s\').val())">Svg</button>' % (selected_usr, str(doc['id']), id_of_input)
+                code_htmljs += '<script type="text/javascript">'
+                code_htmljs += "$('#%s').selectize({" % id_of_input
+                code_htmljs += "plugins: ['restore_on_backspace','remove_button', 'drag_drop'], "
+                code_htmljs += "delimiter: ',', "
+                code_htmljs += "options : %s, " % liste_tags_options_str
+                code_htmljs += "items : %s, " % liste_tags_selected
+                code_htmljs += "persist: true, "
+                code_htmljs += "create: function(input) { return { value: input, text: input } }"
+                code_htmljs += "});</script></div>"
+
+                # -------- Commandes
+                code_htmljs2 = '<div style="max-width:20 ; text-align: center ;">'
+                code_htmljs2 += '<button type="button" class="btn btn-success btn-sm" onclick="button_sav_tags_obj(\'%s\', \'%s\', \'%s\', false);">Save</button>' % (selected_usr, str(doc['id']), id_of_input)
+                code_htmljs2 += '<br><button type="button" class="btn btn-danger btn-sm" style="margin-top:4px;" onclick="button_sav_tags_obj(\'%s\', \'%s\', \'%s\', true);">Del</button>' % (selected_usr, str(doc['id']), id_of_input)
+
+                # effacer 1 ligne dans datatable : https://datatables.net/reference/api/row().remove()
+                code_htmljs2 += '</div>'
+                objj['commandes'] = code_htmljs2
+
+                # -------- title
+                tmpURLinterne = "./dump_obj?pIDH=%s" % (doc.get('id_hash') or 'None')
+                # objj['title'] =  '<p><b><a href="%s" title="%s" target="_blank">%s</a></b>&nbsp;' \
+                #                  '<a href="%s" target="_blank">webs</a>' \
+                #                  '<br><i>par %s</i></p>' % (tmpURLinterne, doc.get('description','No description'), doc.get('title','Titre non specifie'), doc.get('url_annonce','Url non trouvee'), doc.get('uploadby',''))
+                objj['title'] =  '<p><b><a href="%s" title="" target="_blank">%s</a></b>&nbsp;' \
+                                 '' \
+                                 '<br><i>par %s&nbsp;&nbsp;|&nbsp;&nbsp;%s&nbsp;&nbsp;|&nbsp;&nbsp;<a href="%s" target="_blank">lien</a></i></p>' % (tmpURLinterne, (doc.get('title') or 'Titre non specifie'), (doc.get('uploadby') or ''), str(" ".join(sorted(doc.get('sources') or []))), (doc.get('url_annonce') or 'Url non trouvee'))
+
+                objj['title'] += code_htmljs
+                # objj['tags_usr'] = code_htmljs   # Ici on met dans un champ a part
+
+                # -------- price
+                objj['price'] = '<p align="center">{:,d} k</p>'.format(int(round((doc.get('price') or 0)/1000,0)))
+
+                # -------- surface
+                objj['surface'] = '<p align="center">%d</p>' % (doc.get('surface') or 0)
+
+                # -------- Champ Description avec Images & Historique
                 retour="<p>"
                 tmpNbImg=0
-                for img_id in doc.get('images_ids', []) :
-                    lien = "./js_imm_image?pID=%s" % img_id
+                for img_id in (doc.get('images_ids') or []) :
+                    lien = "./dump_img?pID=%s" % img_id
                     tmpNbImg += 1
-                    if tmpNbImg > 8 :
+                    if tmpNbImg > 6 :
                         retour += '.'
                     else :
                         retour += '<a href="%s" target="_blank"><img src="%s" alt="" height="80" width="80"></a> ' % (lien, lien)
@@ -289,70 +366,63 @@ class ServImm(object):
                 retour+="</p>"
                 objj['description'] = str(retour)
 
-                for dkey in sorted(doc) :
-                    if str(dkey) in ['ts_updated', 'ts_published', 'type2bien', 'sources'] :
-                        if type(doc[dkey]) is str :         objj[str(dkey).replace(".","_")] = str(doc[dkey])
-                        elif type(doc[dkey]) is datetime :  objj[str(dkey).replace(".","_")] = doc[dkey].strftime('%y-%m-%d<br>%H:%M')  # doc[dkey].strftime('%y-%m-%d %a')
-                        elif type(doc[dkey]) is float :     objj[str(dkey).replace(".","_")] = round(doc[dkey], 1)
-                        elif type(doc[dkey]) is int :       objj[str(dkey).replace(".","_")] = int(doc[dkey])
-                        elif type(doc[dkey]) is list :      objj[str(dkey).replace(".","_")] = str(" ".join(sorted(doc[dkey])))
-                        elif type(doc[dkey]) is dict :      objj[str(dkey).replace(".","_")] = str(doc[dkey])
-                        else :
-                            logging.error("Type de colonne non reconnu pour immo : %s" % str(type(doc[dkey])))
-                            objj[str(dkey).replace(".","_")] = str(doc[dkey])
 
-                data.append(objj)
+
+                # for dkey in sorted(doc) :
+                #     if str(dkey) in ['ts_updated', 'ts_published', 'type2bien', 'sources'] :
+                #         if type(doc[dkey]) is str :         objj[str(dkey).replace(".","_")] = str(doc[dkey])
+                #         elif type(doc[dkey]) is datetime :  objj[str(dkey).replace(".","_")] = doc[dkey].strftime('%y-%m-%d<br>%H:%M')  # doc[dkey].strftime('%y-%m-%d %a')
+                #         elif type(doc[dkey]) is float :     objj[str(dkey).replace(".","_")] = round(doc[dkey], 1)
+                #         elif type(doc[dkey]) is int :       objj[str(dkey).replace(".","_")] = int(doc[dkey])
+                #         elif type(doc[dkey]) is list :      objj[str(dkey).replace(".","_")] = str(" ".join(sorted(doc[dkey])))
+                #         elif type(doc[dkey]) is dict :      objj[str(dkey).replace(".","_")] = str(doc[dkey])
+                #         else :
+                #             logging.error("Type de colonne non reconnu pour immo : %s" % str(type(doc[dkey])))
+                #             objj[str(dkey).replace(".","_")] = str(doc[dkey])
+
+                laliste.append(objj)
+            retourObj["data"] = laliste
             self.myops.rdb_release()
-            retourObj["data"] = data
-        return retourObj
 
-    @cherrypy.expose()
-    def js_imm_image(self, pID=''):
-        retourObj = ''
-        if pID != '' :
-            dbconn = self.myops.rdb_get_lock()
-            if dbconn is not None :
-                curseur = r.table(self.myops.config.get('rdb.table.phot', 'immophotos'))
-                curseur = curseur.get(pID)
-                curseur = curseur.run(dbconn)
-
-                cherrypy.response.headers['Content-Type'] = "image/" + curseur['type']
-                retourObj = curseur['content']
-            self.myops.rdb_release()
+        # cherrypy.session[selected_usr+'liste_files'] = retourObj
 
         return retourObj
 
+    # ------- update les tags sur un objet pour un user specifique
     @cherrypy.expose()
-    def js_imm_tag_annonce(self, pIDH='', pAction='', pParam=''):
-        retourObj = ''
-        if pIDH != '' :
-            dbconn = self.myops.rdb_get_lock()
-            if dbconn is not None :
-                if 'toggleusertag' in pAction :
-                    curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
-                    curseur = curseur.filter(r.row["id_hash"].eq(pIDH)).get_field("user_tags")
-                    curseur = curseur.run(dbconn)
-                    tags0 = curseur.next()
-                    curseur.close()
-                    if pParam.lower() in tags0 :
-                        # -- le tag est deja dans l'objet : on l'enleve de la liste
-                        tags1 = list(tags0)
-                        tags1.remove(pParam.lower())
-                        curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
-                        curseur = curseur.filter(r.row["id_hash"].eq(pIDH))
-                        curseur = curseur.update({"user_tags": tags1})
-                        curseur.run(dbconn)
-                    else :
-                        # -- on ajoute le tag a la liste
-                        curseur = r.table(self.myops.config.get('rdb.table.annon'))  # .max('ts_collected').to_json()
-                        curseur = curseur.filter(r.row["id_hash"].eq(pIDH))
-                        curseur = curseur.update({"user_tags": r.row["user_tags"].append(pParam.lower()).distinct()})
-                        curseur.run(dbconn)
-            self.myops.rdb_release()
-        return retourObj
+    @cherrypy.tools.json_in()
+    @cherrypy.tools.json_out()
+    def upd_obj_tags(self, _="", usr_uname="", object_id="", str_tags_comma=""):
+        if usr_uname != "" and object_id != "" :
+            tags_obj = str_tags_comma.split(',')
+            if tags_obj[0] == "" :
+                tags_obj2 = []
+            else :
+                tags_obj2 = [f4s.cleanOnlyLetterDigit(x).lower() for x in tags_obj]
+                # Au besoin on ajoute un nouveau tag a la session pour refresh de la liste
+                tags_in_session = list(set().union((cherrypy.session.get(usr_uname + '_tags_all_arr') or ["---"]), tags_obj2))
+                cherrypy.session[usr_uname + '_tags_all_arr'] = tags_in_session
 
+            if self.myops.rdb_get_lock() is not None :
+                curseur = r.table(self.myops.config['rdb.table.annon.users']).insert({"id": object_id, "tags_usr": {usr_uname: tags_obj2}}, conflict='update').run(self.myops.rdb)
+                # # Update qui update un des items du dict qui contient les tags, sans effacer le dict en entier
+                # curseur = r.table(self.myops.config['rdb.table.vids.users']).get(object_id).update({"tags_usr": {usr_uname: tags_obj}}).run(self.myops.rdb)
+                # # -- Si l'objet n'est pas connu pas d'insert
+                # if curseur['skipped'] == 1 :
+                #     curseur = r.table(self.myops.config['rdb.table.vids.users']).insert({"id": object_id, "tags_usr": {usr_uname: tags_obj}})
+                logging.debug('Update tags : %s' % str(curseur))
+                self.myops.rdb_release()
+
+            # -- delete du cache de session
+            # selected_usr = cherrypy.session.get('selected_usr', default="007")
+            # cherrypy.session[selected_usr+'liste_files'] = None
+            # cherrypy.session[selected_usr+'tags_systm'] = None
+            # cherrypy.session[selected_usr+'tags_user'] = None
+        return { 'answer' : "ok"}
+
+    # ------- dump html
     @cherrypy.expose()
-    def js_imm_dump_annonce(self, pIDH=''):  # , pParam=''):
+    def dump_obj(self, pIDH=''):  # , pParam=''):
         retourObj = '<html lang="en"><head><meta charset="UTF-8"><title>Annonce</title></head><body>'
         retourObj += '<table>'
         tmpImages = ""
@@ -381,7 +451,7 @@ class ServImm(object):
                         if tags0[cle] != '' and tags0[cle] != '0' :
                             if 'images_ids' in cle :
                                 for img_id in tags0[cle] :
-                                    lien = "./js_imm_image?pID=%s" % img_id
+                                    lien = "./dump_img?pID=%s" % img_id
                                     tmpImages += '<img src="%s" alt="">&nbsp;' % lien
                             elif cle not in ['codepostal', 'description', 'title', 'localite_stz', 'price', 'uploadby']:
                                 tmpFin += '<tr><td>'
@@ -399,14 +469,28 @@ class ServImm(object):
         retourObj += "</body></html>"
         return retourObj
 
+    # ------- dump binaire
+    @cherrypy.expose()
+    def dump_img(self, pID=''):
+        retourObj = ''
+        if pID != '' :
+            dbconn = self.myops.rdb_get_lock()
+            if dbconn is not None :
+                curseur = r.table(self.myops.config.get('rdb.table.phot', 'immophotos'))
+                curseur = curseur.get(pID)
+                curseur = curseur.run(dbconn)
 
+                cherrypy.response.headers['Content-Type'] = "image/" + curseur['type']
+                retourObj = curseur['content']
+            self.myops.rdb_release()
 
+        return retourObj
 
 if __name__ == '__main__':
     # --- Logs Definition  logging.Logger.manager.loggerDict.keys()
-    Level_of_logs = level=logging.INFO
+    Level_of_logs = level =logging.INFO
     logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.basicConfig(level=logging.DEBUG, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(name)s|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
+    logging.basicConfig(level=Level_of_logs, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(name)s|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
 
     # -- PATH
     if 'websrv' in Path.cwd().parts[-1] :
@@ -427,14 +511,14 @@ if __name__ == '__main__':
     config_root= { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wstatic").as_posix() } }
     cherrypy.tree.mount(ServStatic(), "/", config_root)
 
-
     # -------- SERVER VIDS --------
     config_vids = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wvid").as_posix(),
                                        'tools.sessions.on'  : True } }
     cherrypy.tree.mount(ServVid(), "/vid", config_vids)
 
     # -------- SERVER IMMO --------
-    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix() } }
+    config_immo = { '/' :            { 'tools.staticdir.on'  : True, 'tools.staticdir.index'     : "index.html", 'tools.staticdir.dir' : Path().cwd().joinpath("websrv").joinpath("wimm").as_posix(),
+                                       'tools.sessions.on'  : True } }
     cherrypy.tree.mount(ServImm(), "/imm", config_immo)
 
     # --- Loglevel pour CherryPy : A FAIRE ICI, une fois les serveurs mounted et avant le start

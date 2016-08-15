@@ -30,10 +30,10 @@ def scan_vid_files(ops) :
             #------------ Lecture du fichier depuis le disque : TOUS LES FICHIERS
             # FORMAT D'UN FICHIER : Nom (audio lg) [sub titles].ext   OU    Saga Annee Nom ...
             nf = dict()
-            nf['file.name_full'] = str(ppath.name)           # Le nom complet du fichier (sans le chemin)
-            nf['file.name_stem'] = str(ppath.stem)      # Tout se qui est a gauche du dernier "." du nom complet
-            nf['file.suffix'] = str(ppath.suffix)  # Le segment a droite du dernier "." du nom complet
-            nf['file.pathfullname'] = str(ppath)            # Le lien complet vers le fichier : chemin + nom complet
+            nf['file.name_full'] = str(ppath.name)  # Le nom complet du fichier (sans le chemin)
+            nf['file.name_stem'] = str(ppath.stem)  # Tout se qui est a gauche du dernier "." du nom complet
+            nf['file.suffix'] = str(ppath.suffix)   # Le segment a droite du dernier "." du nom complet
+            nf['file.pathfullname'] = str(ppath)    # Le lien complet vers le fichier : chemin + nom complet
             nf['file.path'] = str(ppath.parent)     # Le repertoire du fichier, dans le dernier "/" : pathfullname = path + "/" + name_full
             nf['file.subtitles'] = list()
             nf['file.audiotracks'] = list()
@@ -83,14 +83,13 @@ def scan_vid_files(ops) :
         else :
             logging.error("Type non reconnu, ni repertoire, ni fichier : %s" % str(ppath))
 
-
-    # --- On construit la liste des fichiers de video & de sous-titres
+    # -- On construit la liste des fichiers de video & de sous-titres
     cles = sorted((ops.config.get('reps') or dict()).keys())
     for nom in cles :
         logging.debug("Scanning directory %s" % nom)
         scan_rep([nom], Path(ops.config.get('reps')[nom]), [nom, ops.config.get('reps')[nom]])
 
-    #--- On browse les sous-titres pour completer la liste des videos
+    # -- On browse les sous-titres pour completer la liste des videos
     logging.debug("Matching subtitles on %d media / %d subtitles " % (len(my_vid_files), len(my_subtitles_files)))
     nbst = 0
     for subt in my_subtitles_files:
@@ -109,40 +108,49 @@ def scan_vid_files(ops) :
                             logging.log(logging.DEBUG-2,"st trouve : %s" % fichier['file.name_stem'])
                             nbst += 1
                             break
-    logging.info("%d st affectes" % nbst)
+    logging.debug("%d STit affectes" % nbst)
 
-    #--- Ici on a les listes : on envoie vers rdb
+    # -- Ici on a les listes : on envoie vers rdb
     if len(my_vid_files) < 1000 :
         logging.critical("%d fichiers seulement, update dans rdb annule" % len(my_vid_files))
     else :
         try :
-            # Effacement prealable
-            # nbindb = int(r.table(ops.config['rdb.table.vidfiles']).count().run(ops.rdb))
-            # if nbindb > 0 :
-            #     logging.debug("Effacement des %d fichiers de la base actuelle" % nbindb)
-            #     r.table(ops.config['rdb.table.vidfiles']).delete().run(ops.rdb)
             logging.debug("Insert/update %d objects in rdb" % len(my_vid_files))
-            # nbins = nbupd = 0
-            # for vi in my_vid_files :
-            #     reponse = r.table(ops.config['rdb.table.vidfiles']).insert(vi, conflict="update", return_changes=False).run(ops.rdb) # conflict="update" ou replace
-            #     nbins += reponse.get('inserted') or 0
-            #     nbupd += reponse.get('replaced') or 0
+            # - Recup de la date max dans la db
+            table_vide = True
+            ts_max_avant_upd = None
+            if r.table(ops.config['rdb.table.vidfiles']).count().run(ops.rdb) > 0 :
+                table_vide = False
+                ts_max_avant_upd = r.table(ops.config['rdb.table.vidfiles']).max('file.ts_lastcheck')['file.ts_lastcheck'].run(ops.rdb)
+
+            # - Insert/update des obj existant
             reponse = r.table(ops.config['rdb.table.vidfiles']).insert(my_vid_files, conflict="update", return_changes=False).run(ops.rdb) # conflict="update" ou replace
-            logging.info("RDB : %d Inserted | %d updated" % (reponse.get('inserted') or 0, reponse.get('replaced') or 0))
+            logging.debug("RDB : %d Inserted | %d updated | Now removing from DB unfound files" % (reponse.get('inserted') or 0, reponse.get('replaced') or 0))
+
+            # - Delete des objets pas detectes depuis la derniere fois
+            if not table_vide :
+                reponse2 = r.table(ops.config['rdb.table.vidfiles']).filter(r.row['file.ts_lastcheck'].le(ts_max_avant_upd)).delete().run(ops.rdb)
+                logging.info("RDB : %d Inserted | %d updated | %d deleted" % (reponse.get('inserted') or 0, reponse.get('replaced') or 0, reponse2.get('deleted') or 0))
+            else :
+                logging.info("RDB : %d Inserted | %d updated" % (reponse.get('inserted') or 0, reponse.get('replaced') or 0))
         except Exception as e :
             logging.error("Exception durant update rdb : %s" % str(e))
+
+###liste_doublons = r.db('hdh').table('vids').group('file.size_GB').count().ungroup().filter(lambda obj : obj['reduction'].ge(2)).order_by(r.desc('reduction'))['group'].run(rdb)
+###liste_doublons = r.db('hdh').table('vids').group('file.size_GB').count().ungroup().filter(lambda obj : obj['reduction'].ge(2)).order_by(r.desc('reduction')).outer_join(r.db('hdh').table('vids'), lambda row1, row2: row1['group'] == row2['file.size_GB']).run(rdb)
+
+
 
     # -- Log d'activite
     time.sleep(1)  # On attend 1s pour que cela donne une duree >1 pour l'affichage grafana
     ops.insertKPI(measurement='state', value=0.0, tags={'component' : 'python'})
 
-
 if __name__ == '__main__':
-    logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.addLevelName(logging.INFO-2, 'INFO2') # Logging, arguments pour fichier : filename='example.log', filemode='w'
+    logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS')   # Logging, arguments pour fichier : filename='example.log', filemode='w'
+    logging.addLevelName(logging.INFO-2, 'INFO2')            # Logging, arguments pour fichier : filename='example.log', filemode='w'
     logging.basicConfig(level=logging.DEBUG, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
-    logging.getLogger("requests").setLevel(logging.WARNING) # On desactive les logs pour la librairie requests
-    logging.getLogger("schedule").setLevel(logging.WARNING) # On desactive les logs pour la librairie schedule
+    logging.getLogger("requests").setLevel(logging.WARNING)  # On desactive les logs pour la librairie requests
+    logging.getLogger("schedule").setLevel(logging.WARNING)  # On desactive les logs pour la librairie schedule
     logging.info("Starting...")
 
     # -- PATH

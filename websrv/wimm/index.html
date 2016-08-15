@@ -1,11 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <link rel="icon" type="image/gif" href="/images/favicon.gif" />
-    <title>Immo</title>
-</head>
-<body>
-    <p><b>hola</b></p>
-</body>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>ImmoTag</title>
+        <link rel="icon" type="image/gif" href="/images/favicon.gif" />
+        <!-- JQUERY & JQUERY UI -->
+        <script type="text/javascript" src="/jslib/jquery-3.1.0.min.js"></script>
+        <script type="text/javascript" src="/jslib/jquery-ui/jquery-ui.min.js"></script>
+        <link rel="stylesheet" href="/jslib/jquery-ui/jquery-ui.min.css">
+        <!-- DataTable & selectize -->
+        <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
+        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
+        <script type="text/javascript" src="/jslib/selectize.min.js"></script>
+        <link rel="stylesheet" href="/css/selectize.legacy.css">
+        <!-- Bootstrap -->
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script type="text/javascript" src="/jslib/bootstrap-3.3.7/js/bootstrap.js"></script>
+        <link href="/jslib/bootstrap-3.3.7/css/bootstrap.min.css" rel="stylesheet" media="screen">
+
+        <script type="text/javascript" src="/jslib/underscore-min.js"></script>
+        <script type="text/javascript" src="./listei.js"></script>
+    </head>
+
+    <body>
+        <!-- http://getbootstrap.com/2.3.2/index.html     http://getbootstrap.com/css/#grid        -->
+        <!--<div class="container" style="max-width:1200px ;  margin:auto ; background-color:#b3d9ff">-->
+        <div class="container-fluid" style="margin-left:5px; margin-right:5px; background-color:#b3d9ff; ">
+            <div class="row" style="margin-top:8px;margin-bottom:8px;">
+
+                <div class="col-xs-1" style="text-align:center; verticalAlign:middle;">
+                    <button type="button" class="btn btn-success dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" id="user_button">---</button>
+                    <ul class="dropdown-menu">
+                        <li><a href="#" onclick="javascript:button_change_user('john');">john</a></li>
+                        <li><a href="#" onclick="javascript:button_change_user('aur');">aur</a></li>
+                        <li><a href="#" onclick="javascript:button_change_user('jit');">jit</a></li>
+                    </ul>
+                </div>
+
+                <div class="col-xs-2" style="text-align:center; margin-top:4px;">
+                    Last&nbsp;
+                    <input type="text" style="text-align:center;" id="input_nbdays" size="1" value="5">&nbsp;
+                    days
+                </div>
+
+                <div class="col-xs-1" style="text-align:center;"><button type="button" class="btn btn-primary" id="input_button_load" onclick="button_load()">Load</button></div>
+
+                <div class="col-xs-2" style="text-align:center; margin-top:4px; background-color:#0080ff;">
+                    <div id="intervaldates">| ... press load ... |</div>
+                </div>
+
+                <div class="col-xs-1" style="text-align:center; margin-top:4px; background-color:#4da6ff;">
+                    <div id="labelnbdocs">| press load |</div>
+                </div>
+
+                <div class="col-xs-1" style="text-align:right;"><button type="button" class="btn btn-primary" id="input_button_filter" onclick="button_filter()">Filter</button></div>
+
+                <div class="col-xs-1" style="text-align:left; "></div>
+                <div class="col-xs-1" style="text-align:left; "></div>
+                <div class="col-xs-1" style="text-align:left; "></div>
+                <!--<div class="col-xs-2" style="text-align:center;"><b>Au</b>&nbsp;&nbsp;<input type="text" align="center" id="input_dateMax" size="8" value="2020-12-31"></div>-->
+                <!--<script type="text/javascript">$( function() { $( "#input_dateMax" ).datepicker() ; $( "#input_dateMax" ).datepicker( "option", "dateFormat", "yy-mm-dd" ) ; $( "#input_dateMax" ).val("2020-12-31") ; } ); </script>-->
+            </div>
+            <div class="row" style="margin-top:5px;margin-bottom:5px;">
+                <div class="col-xs-1" style="text-align:right; margin-top:8px;"><b>Show tags</b></div>
+                <div class="col-xs-5" style="text-align:left;"><input type="text" id="input_tags_show"></div>
+                <div class="col-xs-1" style="text-align:right; margin-top:8px;"><b>Hide tags</b></div>
+                <div class="col-xs-5" style="text-align:left;"><input type="text" id="input_tags_hide"></div>
+            </div>
+        </div>
+
+        <!--<div style="max-width:2000px ;margin: auto;">-->
+        <div style="margin-left:5px;margin-right:5px; background-color:#f2f2f2;">
+        <br>
+            <table id="tbl_liste" class="display" style="" border="0px" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th width="6%" style="text-align:center; verticalAlign:middle;">Update</th>
+
+                        <!--<th width="8%" style="text-align:center; verticalAlign:middle;">Sources</th>-->
+                        <th width="8%" style="text-align:center; verticalAlign:middle;">Localite</th>
+
+                        <th width="4%" style="text-align:center; verticalAlign:middle;">Prix</th>
+                        <th width="4%" style="text-align:center; verticalAlign:middle;">Surf</th>
+
+                        <th width="33%" style="text-align:center; verticalAlign:middle;">Titre</th>
+                        <th width="5%" style="text-align:center; verticalAlign:middle;">Actions</th>
+                        <th width="40%" style="text-align:center; verticalAlign:middle;">Description</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </body>
 </html>

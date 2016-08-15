@@ -4,58 +4,61 @@
       <meta charset="utf-8"/>
       <title>Vids</title>
       <link rel="icon" type="image/gif" href="/images/favicon.gif" />
-        <script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>
+       <script type="text/javascript" src="/jslib/jquery-3.1.0.min.js"></script>
+      <!--<script type="text/javascript" src="/jslib/jquery-1.12.1.min.js"></script>-->
         <script type="text/javascript" src="/jslib/jquery.dataTables.min.js"></script>
-        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
 
-        <script type="text/javascript" src="/jslib/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="/jslib/jquery-ui/jquery-ui.min.js"></script>
+
         <script type="text/javascript" src="/jslib/selectize.min.js"></script>
+
+        <link rel="stylesheet" href="/jslib/jquery-ui/jquery-ui.min.css">
+        <link rel="stylesheet" href="/css/jquery.dataTables.min.css">
         <link rel="stylesheet" href="/css/selectize.legacy.css">
 
       <script type="text/javascript" src="/jslib/underscore-min.js"></script>
       <script type="text/javascript" src="./liste.js"></script>
   </head>
 
-  <body>
-    <div style="max-width:1200px ;  margin: auto; background-color:#b3d9ff">
-    <table id="tbl_params" border="0"  style="table-layout: fixed ; vertical-align: middle; border: 0px solid blue ; border-collapse: collapse;">
-        <tr>
-            <td width="5%" align="center"><b>User</b>&nbsp;&nbsp;<select id="input_user" onchange="user_selected();"><option value="aur">aur</option><option value="jit">jit</option></select></td>
-            <td width="10%"  STYLE="Text-ALIGN:center">
-                <b>Du &nbsp;</b><input type="text" STYLE="Text-ALIGN:center" id="input_dateMin" size="8" value="00-01-01"><br>
-                <b>Au &nbsp;</b><input align="center" type="text" STYLE="Text-ALIGN:center" id="input_dateMax" size="8" value="20-12-31">
-            </td>
-
-            <td width="5%" align="right"><b>Sys Tags&nbsp;</b></td>
-            <td width="20%">
-                <div style="max-width:350px ;"><input type="text" id="input_tags"></div>
-            </td>
-
-            <td width="5%" align="right"><b>Usr Tags&nbsp;</b></td>
-            <td width="20%">
-                <div style="max-width:350px ;"><input type="text" id="input_tags_usr"></div>
-            </td>
-            <td width="7%" align="center">&nbsp;&nbsp;&nbsp;<button id="input_filter_refresh" onclick="button_refresh()">Filter tags</button></td>
-        </tr>
-
-    </table>
-        </div>
-    <div  style="max-width:1200px ;margin: auto;">
-    <br>
-    <!--- TODO : regler la taille de la table --->
-    <table id="tbl_liste" class="display" style="" border="0px" cellspacing="0">
-            <thead>
+    <body>
+        <div style="max-width:1200px ;  margin: auto; background-color:#b3d9ff">
+            <table id="tbl_params" border="0"  style="table-layout: fixed ; vertical-align: middle; border: 0px solid blue ; border-collapse: collapse;">
                 <tr>
-                    <th align="center" >Date File</th>
-                    <th align="center"   >Tags Syst</th>
-                    <th align="center"   >Tags User</th>
-                    <th align="center"   >Name</th>
-                    <th align="center" >Langs</th>
-                    <th align="center" >GB</th>
-                    <th align="center" > </th>
+                    <td width="5%" align="center"><b>User</b>&nbsp;&nbsp;<select id="input_user" onchange="user_selected();"><option value="aur">aur</option><option value="jit">jit</option></select></td>
+                    <td width="10%"  STYLE="Text-ALIGN:center">
+                        <b>Du &nbsp;</b><input type="text" STYLE="Text-ALIGN:center" id="input_dateMin" size="8" value="00-01-01"><br>
+                        <b>Au &nbsp;</b><input align="center" type="text" STYLE="Text-ALIGN:center" id="input_dateMax" size="8" value="20-12-31">
+                    </td>
+
+                    <td width="5%" align="right"><b>Sys Tags&nbsp;</b></td>
+                    <td width="20%">
+                        <div style="max-width:350px ;"><input type="text" id="input_tags"></div>
+                    </td>
+
+                    <td width="5%" align="right"><b>Usr Tags&nbsp;</b></td>
+                    <td width="20%">
+                        <div style="max-width:350px ;"><input type="text" id="input_tags_usr"></div>
+                    </td>
+                    <td width="7%" align="center">&nbsp;&nbsp;&nbsp;<button id="input_filter_refresh" onclick="button_refresh()">Filter tags</button></td>
                 </tr>
-            </thead>
-    </table>
-    </div>
-  </body>
+            </table>
+        </div>
+
+        <div  style="max-width:1200px ;margin: auto;">
+        <br>
+            <table id="tbl_liste" class="display" style="" border="0px" cellspacing="0">
+                <thead>
+                    <tr>
+                        <th align="center" >Date File</th>
+                        <th align="center" >Tags Syst</th>
+                        <th align="center" >Tags User</th>
+                        <th align="center" >Name</th>
+                        <th align="center" >Langs</th>
+                        <th align="center" >GB</th>
+                        <th align="center" > </th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </body>
 </html>

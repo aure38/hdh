@@ -2,29 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="icon" type="image/gif" href="/images/favicon.gif" />
     <title>HDH</title>
+    <link rel="icon" type="image/gif" href="/images/favicon.gif" />
+    <!-- JQUERY -->
+    <script type="text/javascript" src="/jslib/jquery-3.1.0.min.js"></script>
+    <!-- Bootstrap -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="/jslib/bootstrap-3.3.7/js/bootstrap.js"></script>
+    <link href="/jslib/bootstrap-3.3.7/css/bootstrap.min.css" rel="stylesheet" media="screen">
 </head>
+
 <body>
-    <p><b>Dashboards</b></p>
-    <p>
-        <a href="#" onclick="javascript:window.location.port=3000" target="_blank">Grafana</a><br>
-        <a href="./imm/imm1.html" target="_blank">Immo Fresh</a><br>
-        <a href="./vid/index.html" target="_blank">Vids</a><br>
-    </p>
-    <p>
-        <a href="./imm/imm2.html" target="_blank">Immo TAGS - avec tags aur ou jit</a><br>
-        <a href="./imm/imm3.html" target="_blank">Immo FAVORIS - avec tag fav</a><br>
-        <a href="./imm/imm4.html" target="_blank">Immo MARQUES - avec tags ma1 ma2 ma3 ma4 ma5</a><br>
-        <a href="./imm/imm5.html" target="_blank">Immo ARCHIVE - avec tag arch</a><br>
-        <a href="./imm/immtotal.html" target="_blank">Immo Tout</a><br>
-    </p>
-    <p><b>Admin</b></p>
-    <p>
-        <a href="#" onclick="javascript:window.location.port=8080" target="_blank">RethinkDB</a><br>
-        <a href="#" onclick="javascript:window.location.port=8083" target="_blank">InfluxDB</a><br>
-        <a href="#" onclick="javascript:window.location.port=9591" target="_blank">Supervisor</a><br>
-    </p>
+    <!-- http://getbootstrap.com/2.3.2/index.html -->
+    <div class="container" style="max-width:300px ;  margin: auto; background-color:#white">
+
+        <p style="text-align:center;"><small> </small></p>
+        <div class="list-group">
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-primary" href="#" onclick="javascript:window.location.assign(location.protocol+'//'+location.hostname+':'+'3000'+'/dashboard/db/treff-mini')" target="_self">HomeViz</a></li>
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-primary" href="./imm/index.html" target="_self">Immo</a></li>
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-primary" href="./vid/index.html" target="_self">Vids</a></li>
+        </div>
+
+        <div class="list-group">
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-info" href="#" onclick="javascript:window.location.port=8080" target="_self">RethinkDB</a></li>
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-info" href="#" onclick="javascript:window.location.port=8083" target="_self">InfluxDB</a></li>
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-info" href="#" onclick="javascript:window.location.port=3000" target="_self">Grafana</a></li>
+            <li class="list-group-item"><a class="btn btn-block btn-large btn-info" href="#" onclick="javascript:window.location.port=9591" target="_self">Supervisor</a></li>
+        </div>
+
+    </div>
 
 </body>
 </html>
