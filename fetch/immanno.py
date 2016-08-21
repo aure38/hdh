@@ -9,7 +9,6 @@ import difflib,hashlib
 from aclib.ops4app import Ops4app
 from aclib.func4strings import Func4strings as f4s
 
-
 class ImmoFetcher(threading.Thread):
     our_dico_ville_2_codepostal = dict()    # str(codepostal) -> str(nom_ville)
     def __init__(self, ops_pointeur):
@@ -98,7 +97,7 @@ class ImmoFetcher(threading.Thread):
             response = requests.get(url_requete)
             soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
             # Boucle sur les tags contenant les url vers chaque annonce matchant la requete
-            for ref_immo in soup.select("div#global > div#center > div#content > div#fiche > div#annonces > div.pane > ul > li > h3 > a") :
+            for ref_immo in soup.select("a.figure") : # for ref_immo in soup.select("div#global > div#center > div#content > div#fiche > div#annonces > div.pane > ul > li > h3 > a") :
                 if ref_immo.get('href', '') != '' :
                     tmpURLann = 'http://www.immo-isere.com/' + ref_immo.get('href', '')
                     if tmpURLann not in self.my_current_url_annonces :
@@ -140,7 +139,7 @@ class ImmoFetcher(threading.Thread):
                         if "riouperoux" in tmploc2 :
                             self.my_current_annonce['codepostal'] = "38220"
                         else :
-                            logging.error("Localite sans code postal : %s" % tmploc2)
+                            logging.debug("Localite sans code postal : %s" % tmploc2)
                             envoi_2_db = False
                 except :
                     self.my_current_annonce['localite_stz'] = self.my_current_annonce['codepostal'] = ""
@@ -355,7 +354,8 @@ class ImmoFetcher(threading.Thread):
 
     def zil_parse_annonces(self, url_requete=""):
         retour = [0, 0, 0, 0]
-        self.my_current_url_annonces = list()
+        urls = list()
+        # self.my_current_url_annonces = list()
 
         #---- Recuperation des liens vers les annonces correspondant a cette requete
         if len(url_requete) > 4 :
@@ -363,14 +363,13 @@ class ImmoFetcher(threading.Thread):
             soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
             liste_references = [i.text for i in soup.select("html > body > div > div > div > div > div > table > tr > td > div > span")]
             liste_url_vrac = [i['href'] for i in soup.select("html > body > div > div > div > div > div > table > tr > td > div > div > a")]
-            for ref in liste_references :
-                for url_zil in liste_url_vrac :
-                    if "/"+ref+".htm" in url_zil :
-                        tmpu = "http://zilek.fr/"+url_zil
-                        if tmpu not in self.my_current_url_annonces :
-                            self.my_current_url_annonces.append(tmpu)
-                        break
-            urls = list()
+            # for ref in liste_references :
+            #     for url_zil in liste_url_vrac :
+            #         if "/"+ref+".htm" in url_zil :
+            #             tmpu = "http://zilek.fr/"+url_zil
+            #             if tmpu not in self.my_current_url_annonces :
+            #                 self.my_current_url_annonces.append(tmpu)
+            #             break
             for ref in liste_references :
                 for url_zil in liste_url_vrac :
                     if "/"+ref+".htm" in url_zil :
@@ -381,7 +380,8 @@ class ImmoFetcher(threading.Thread):
 
         # ----- On boucle sur l'url de chaque annonce : PARSING
         envoi_2_db = True
-        for url_ann in self.my_current_url_annonces :
+#        for url_ann in self.my_current_url_annonces :
+        for url_ann in urls :
             retour[0] += 1
             self.my_current_annonce = dict()
             response = requests.get(url_ann)
@@ -611,7 +611,7 @@ def launch_fetcher(ops_ptr):
 if __name__ == '__main__':
     logging.addLevelName(logging.DEBUG-2, 'DEBUG_DETAILS') # Logging, arguments pour fichier : filename='example.log', filemode='w'
     logging.addLevelName(logging.INFO-2, 'INFO2') # Logging, arguments pour fichier : filename='example.log', filemode='w'
-    logging.basicConfig(level=logging.INFO, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
+    logging.basicConfig(level=logging.DEBUG, datefmt="%m-%d %H:%M:%S", format="P%(process)d|T%(thread)d|%(levelname)s|%(asctime)s | %(message)s")  # %(thread)d %(funcName)s L%(lineno)d
     logging.getLogger("requests").setLevel(logging.WARNING) # On desactive les logs pour la librairie requests
     logging.getLogger("schedule").setLevel(logging.WARNING) # On desactive les logs pour la librairie schedule
     logging.info("Starting...")
