@@ -81,6 +81,12 @@ class Func4strings:
                                              pEnleveSignesSpeciaux=False, pLettreDigitPointTiret=False,
                                              pLetterDigitTiretOnly=True, pBagOfWords=False)
     @staticmethod
+    def cleanMax(input_str) :
+        return Func4strings.strCleanSanitize(input_str, phtmlunescape=True, pLignesTabsGuillemets=True,
+                                             pNormalizeASCII=True,
+                                             pEnleveSignesSpeciaux=False, pLettreDigitPointTiret=False,
+                                             pLetterDigitTiretOnly=False, pBagOfWords=True)
+    @staticmethod
     def strMultiReplace(subs, subject) :
         """Simultaneously perform all substitutions on the subject string.
         multisub([('hi', 'bye'), ('bye', 'hi')], 'hi and bye')

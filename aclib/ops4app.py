@@ -5,110 +5,170 @@ import logging
 import time
 from datetime import datetime
 from pytz import timezone
-from pathlib import Path
+# from pathlib import Path
 import threading
-import pytoml
+#import pytoml
 
 # --- RDB en mode exclu (1 instance de ops par thread : 1 conn rdb ) ou avec des lock/release car 1 ptr rdb ne se partage pas quand il est en cours de query
 class Ops4app :
-    def __init__(self, appli_uname='default_app_uname') :
+    # def __init__(self, appli_uname='default_app_uname') :
+    #     self._my_appli_uname        = appli_uname
+    #     self._my_rdb                = None
+    #     self._my_rdb_lock           = threading.Lock()
+    #     self._my_config_file        = ''
+    #     self._my_config_from_file   = dict(id=self._my_appli_uname)
+    #     self._my_config             = dict(id=self._my_appli_uname)
+    #     self._isOK                  = True
+    #     o4a_defaut = dict({ "id" : "ops4app", "rdb.ip" : "127.0.0.1", "rdb.port" : 28015, "rdb.base" : "hdh",
+    #                         "idb.ip" : "127.0.0.1", "idb.port" : 8086, "idb.login" : "user", "idb.pwd" : "user",
+    #                         "table_cfg_in_rdb" : "config", "table_logs_in_rdb" : "logs", "kpi_db_in_idb" : "hdhmon"})
+    #
+    #     # # -- JSON : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
+    #     # fichier_path = Path('../hdh.cfg.json')
+    #     # try:
+    #     #     if fichier_path.exists() :
+    #     #         fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
+    #     #         fichier_json = json.load(fichier_obj)
+    #     #         fichier_obj.close()
+    #     #         self._my_config_file = fichier_path.as_posix()
+    #     #         for i in fichier_json :
+    #     #             if i.get('id', '') == 'ops4app' :
+    #     #                 o4a_defaut.update(i)
+    #     #             elif i.get('id', '') == self._my_appli_uname :
+    #     #                 self._my_config_from_file = dict(i)
+    #     # except Exception as e:
+    #     #     logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
+    #
+    #     # -- TOML : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
+    #     fichier_path = Path('../hdh.cfg.toml')
+    #     try:
+    #         if fichier_path.exists() :
+    #             fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
+    #             fichier_toml = pytoml.load(fichier_obj)
+    #             fichier_obj.close()
+    #             self._my_config_file = fichier_path.as_posix()
+    #             for nom in fichier_toml.keys() :
+    #                 if nom == 'ops4app' :
+    #                     o4a_defaut.update(fichier_toml[nom])
+    #                 elif nom == self._my_appli_uname :
+    #                     self._my_config_from_file = dict(fichier_toml[nom])
+    #     except Exception as e:
+    #         logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
+    #
+    #     # -- ops4app : Recup config defaut ou override fichier
+    #     self._my_rdb_IP                 = o4a_defaut.get('rdb.ip')
+    #     self._my_rdb_port               = o4a_defaut.get('rdb.port')
+    #     self._my_rdb_base               = o4a_defaut.get('rdb.base')
+    #     self._my_config_table_in_rdb    = o4a_defaut.get('table_cfg_in_rdb')
+    #
+    #     # -- Connection a RDB et verif connexion, database, table et config de ops4app
+    #     if self.rdb is not None:
+    #         try :
+    #             # La base
+    #             if self._my_rdb_base not in r.db_list().run(self.rdb) :
+    #                 r.db_create(self._my_rdb_base).run(self.rdb)
+    #                 logging.info("Base %s not found in rdb %s, Creation" % (self._my_rdb_base, self._my_rdb_IP))
+    #             self.rdb.use(self._my_rdb_base)
+    #
+    #             # La table de config
+    #             if self._my_config_table_in_rdb not in r.table_list().run(self.rdb) :
+    #                 r.db(self._my_rdb_base).table_create(self._my_config_table_in_rdb).run(self.rdb)
+    #                 logging.info("Table %s not found in rdb %s %s, Creation" % (self._my_config_table_in_rdb, self._my_rdb_IP,self._my_rdb_base))
+    #
+    #             # La config de ops4app
+    #             confOps4app = r.table(self._my_config_table_in_rdb).get('ops4app').run(self.rdb)
+    #             if confOps4app is not None :
+    #                 o4a_defaut.update(confOps4app)
+    #             else:
+    #                 # -- ops4app inconnu dans RDB : update RDB depuis le script
+    #                 r.db(self._my_rdb_base).table(self._my_config_table_in_rdb).insert(o4a_defaut, conflict='replace').run(self.rdb)
+    #                 logging.info("Config ops4app not found in rdb, Pushed default")
+    #
+    #         except Exception as e :
+    #             logging.critical("Problem d'acces a RDB : %s" % str(e))
+    #             self._isOK = False
+    #
+    #     # -- Ici on a la config de ops4app qui est OK : overrides = script -> fichier json -> rdb
+    #     self._my_logs_table_in_rdb  = o4a_defaut.get('table_logs_in_rdb')
+    #     self._my_kpi_db_in_idb      = o4a_defaut.get('kpi_db_in_idb')
+    #     self._my_idb_IP             = o4a_defaut.get('idb.ip')
+    #     self._my_idb_port           = o4a_defaut.get('idb.port')
+    #     self._my_idb_log            = o4a_defaut.get('idb.login')
+    #     self._my_idb_pwd            = o4a_defaut.get('idb.pwd')
+    #
+    #     # -- Recup de la config pour l'appli
+    #     if self.rdb is not None :
+    #         confapp = r.table(self._my_config_table_in_rdb).get(self._my_appli_uname).run(self.rdb)
+    #         if confapp is not None :
+    #             self._my_config.update(confapp)
+    #         else:
+    #             # -- appli inconnue dans RDB : update RDB depuis le script
+    #             self._my_config.update(self._my_config_from_file)
+    #             self._my_config.update({"id" : self._my_appli_uname})
+    #             r.db(self._my_rdb_base).table(self._my_config_table_in_rdb).insert(self._my_config, conflict='replace').run(self.rdb)
+    #             logging.info("Config %s not found in rdb, Pushed default (%d fields)" % (self._my_appli_uname, len(self._my_config)))
+
+    def __init__(self, appli_uname='default_app_uname', rdb_ip_override=None, appli_cfg_override=None) :
         self._my_appli_uname        = appli_uname
         self._my_rdb                = None
         self._my_rdb_lock           = threading.Lock()
-        self._my_config_file        = ''
-        self._my_config_from_file   = dict(id=self._my_appli_uname)
-        self._my_config             = dict(id=self._my_appli_uname)
+        self._my_config             = dict(id=self._my_appli_uname)  # config de l'appli qui a appele ops4app
         self._isOK                  = True
-        o4a_defaut = dict({ "id" : "ops4app", "rdb.ip" : "127.0.0.1", "rdb.port" : 28015, "rdb.base" : "hdh",
-                            "idb.ip" : "127.0.0.1", "idb.port" : 8086, "idb.login" : "user", "idb.pwd" : "user",
-                            "table_cfg_in_rdb" : "config", "table_logs_in_rdb" : "logs", "kpi_db_in_idb" : "hdhmon"})
 
-        # # -- JSON : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
-        # fichier_path = Path('../hdh.cfg.json')
-        # try:
-        #     if fichier_path.exists() :
-        #         fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
-        #         fichier_json = json.load(fichier_obj)
-        #         fichier_obj.close()
-        #         self._my_config_file = fichier_path.as_posix()
-        #         for i in fichier_json :
-        #             if i.get('id', '') == 'ops4app' :
-        #                 o4a_defaut.update(i)
-        #             elif i.get('id', '') == self._my_appli_uname :
-        #                 self._my_config_from_file = dict(i)
-        # except Exception as e:
-        #     logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
+        # -- Config RDB de l'instance ops4app elle-meme
+        self._my_rdb_IP                 = rdb_ip_override or '127.0.0.1'
+        self._my_rdb_port               = 28015
+        self._my_rdb_base               = 'hdh'
+        self._my_config_table_in_rdb    = 'config'
+        self._my_logs_table_in_rdb      = 'logs'
+        self._my_kpi_db_in_idb          = 'hdhmon'
+        self._my_idb_IP                 = '127.0.0.1'
+        self._my_idb_port               = 8086
+        self._my_idb_log                = 'user'
+        self._my_idb_pwd                = 'user'
 
-        # -- TOML : On regarde si fichier de conf, si oui on charge la partie pour ops4app & la partie pour l'appli du parametre
-        fichier_path = Path('../hdh.cfg.toml')
-        try:
-            if fichier_path.exists() :
-                fichier_obj = fichier_path.open(mode='r', encoding='utf-8', errors='backslashreplace')
-                fichier_toml = pytoml.load(fichier_obj)
-                fichier_obj.close()
-                self._my_config_file = fichier_path.as_posix()
-                for nom in fichier_toml.keys() :
-                    if nom == 'ops4app' :
-                        o4a_defaut.update(fichier_toml[nom])
-                    elif nom == self._my_appli_uname :
-                        self._my_config_from_file = dict(fichier_toml[nom])
-        except Exception as e:
-            logging.error("Error reading config file %s | %s" % (str(fichier_path), str(e)))
-
-        # -- ops4app : Recup config defaut ou override fichier
-        self._my_rdb_IP                 = o4a_defaut.get('rdb.ip')
-        self._my_rdb_port               = o4a_defaut.get('rdb.port')
-        self._my_rdb_base               = o4a_defaut.get('rdb.base')
-        self._my_config_table_in_rdb    = o4a_defaut.get('table_cfg_in_rdb')
-
-        # -- Connection a RDB et verif connexion, database, table et config de ops4app
+        # -- Connexion a RDB + recup de la config de ops4app
         if self.rdb is not None:
             try :
-                # La base
-                if self._my_rdb_base not in r.db_list().run(self.rdb) :
-                    r.db_create(self._my_rdb_base).run(self.rdb)
-                    logging.info("Base %s not found in rdb %s, Creation" % (self._my_rdb_base, self._my_rdb_IP))
-                self.rdb.use(self._my_rdb_base)
-
-                # La table de config
-                if self._my_config_table_in_rdb not in r.table_list().run(self.rdb) :
-                    r.db(self._my_rdb_base).table_create(self._my_config_table_in_rdb).run(self.rdb)
-                    logging.info("Table %s not found in rdb %s %s, Creation" % (self._my_config_table_in_rdb, self._my_rdb_IP,self._my_rdb_base))
-
-                # La config de ops4app
                 confOps4app = r.table(self._my_config_table_in_rdb).get('ops4app').run(self.rdb)
                 if confOps4app is not None :
-                    o4a_defaut.update(confOps4app)
-                else:
-                    # -- ops4app inconnu dans RDB : update RDB depuis le script
-                    r.db(self._my_rdb_base).table(self._my_config_table_in_rdb).insert(o4a_defaut, conflict='replace').run(self.rdb)
-                    logging.info("Config ops4app not found in rdb, Pushed default")
-
+                    self._my_logs_table_in_rdb  = confOps4app.get('table_logs_in_rdb')
+                    self._my_kpi_db_in_idb      = confOps4app.get('kpi_db_in_idb')
+                    self._my_idb_IP             = confOps4app.get('idb.ip')
+                    self._my_idb_port           = confOps4app.get('idb.port')
+                    self._my_idb_log            = confOps4app.get('idb.login')
+                    self._my_idb_pwd            = confOps4app.get('idb.pwd')
+                else:  # -- ops4app inconnu dans RDB : update RDB depuis le script
+                    logging.error('Impossible de recuperer la config de ops4app dans rdb %s' % self._my_rdb_IP)
+                    self._isOK = False
             except Exception as e :
                 logging.critical("Problem d'acces a RDB : %s" % str(e))
                 self._isOK = False
 
-        # -- Ici on a la config de ops4app qui est OK : overrides = script -> fichier json -> rdb
-        self._my_logs_table_in_rdb  = o4a_defaut.get('table_logs_in_rdb')
-        self._my_kpi_db_in_idb      = o4a_defaut.get('kpi_db_in_idb')
-        self._my_idb_IP             = o4a_defaut.get('idb.ip')
-        self._my_idb_port           = o4a_defaut.get('idb.port')
-        self._my_idb_log            = o4a_defaut.get('idb.login')
-        self._my_idb_pwd            = o4a_defaut.get('idb.pwd')
-
-        # -- Recup de la config pour l'appli
-        if self.rdb is not None :
+        # -- Recup de la config de l'appli elle-meme
+        if self.rdb is not None:
             confapp = r.table(self._my_config_table_in_rdb).get(self._my_appli_uname).run(self.rdb)
             if confapp is not None :
                 self._my_config.update(confapp)
-            else:
-                # -- appli inconnue dans RDB : update RDB depuis le script
-                self._my_config.update(self._my_config_from_file)
-                self._my_config.update({"id" : self._my_appli_uname})
-                r.db(self._my_rdb_base).table(self._my_config_table_in_rdb).insert(self._my_config, conflict='replace').run(self.rdb)
-                logging.info("Config %s not found in rdb, Pushed default (%d fields)" % (self._my_appli_uname, len(self._my_config)))
+            else:  # -- appli inconnue dans RDB
+                logging.error("Config %s not found in rdb" % self._my_appli_uname)
+                self._isOK = False
+        # -- Config de l'appli : Override par parametre
+        if appli_cfg_override :
+            if type(appli_cfg_override) == type(dict()) :
+                self._my_config.update(appli_cfg_override)
+
     def isOK(self):
         return self._isOK
+
+    # --- Static pour recup l'instance : if None error...
+    @staticmethod
+    def get_instance(appli_uname='default_app_uname', rdb_ip_override=None, appli_cfg_override=dict) :
+        the_instance = Ops4app(appli_uname, rdb_ip_override, appli_cfg_override)
+        if the_instance.isOK() :
+            return the_instance
+        else :
+            return None
 
     # --- CONFIG Recuperation de la config depuis rethinkDB : dans le pire des cas, liste vide
     @property
@@ -121,6 +181,20 @@ class Ops4app :
     @config.deleter
     def config(self):
         self._my_config = None  # Cela forcera un reload a la prochaine demande en acces lecture
+
+    @property
+    def cfg(self):
+        # TODO : Faire une relecture periodique de la config depuis rethinkDB
+        return self._my_config
+    @cfg.setter
+    def cfg(self, p):
+        pass  # on ne fait rien en ecriture
+    @cfg.deleter
+    def cfg(self):
+        self._my_config = None  # Cela forcera un reload a la prochaine demande en acces lecture
+
+
+
 
     # --- LOGS
     def addlog(self, level='default', message='default_message'):
@@ -175,7 +249,7 @@ class Ops4app :
                 logging.warning("Erreur durant deconnexion RDB : %s" % str(e))
             self._my_rdb = None
 
-    # --- RDB multithread / multi instances : on take et on release, sinon on attend...
+    # --- RDB multithread / multi instances : on take et on release (avec attente dans le take si besoin)
     def rdb_get_lock(self):
         if self.rdb is not None :
             self._my_rdb_lock.acquire(blocking=True,timeout=60)
