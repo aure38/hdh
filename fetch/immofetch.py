@@ -6,7 +6,7 @@ import rethinkdb as r
 import logging,time,os,sys,re,random
 import fuzzywuzzy
 from fuzzywuzzy import process
-# import schedule
+import schedule
 import requests,threading, urllib.request  # urllib.request est utilise pour faire des manip sur les url, utiliser requests pour les appels
 import difflib,hashlib
 from aclib.ops4app import Ops4app
@@ -62,19 +62,19 @@ class ImmoFetch(threading.Thread):
               'id': '',
               'id_hash': '',
               'images_ids': [],
-              'localite_stz': '',
+              'localite_stz': 'inconnu',
               'nbpieces': 0,
               'price': 0,
               'sources': [],
               'surface': 0,
               'surface_terrain' : 0,
-              'title': '',
-              'title_stz': '',
+              'title': 'inconnu',
+              'title_stz': 'inconnu',
               'ts_collected': defautdateiso,
               'ts_lastfetched': defautdateiso,
               'ts_published': defautdateiso,
               'ts_updated': defautdateiso,
-              'type2bien': '',
+              'type2bien': 'inconnu',
               'uploadby': '',
               'url_annonce': '',
               'url_images': []
@@ -140,6 +140,7 @@ class ImmoFetch(threading.Thread):
         tmpAnnonceInDB = r.table(ImmoFetch.our_table_annonces).get(obj['id']).run(ImmoFetch.our_ops.rdb_get_lock())
         ImmoFetch.our_ops.rdb_release()
 
+        # ---- Nouvelle annonce
         if tmpAnnonceInDB is None :
             # ----- Insertion des images ---
             obj['images_ids'] = ImmoFetch.push_images_to_rdb(obj)
@@ -151,11 +152,10 @@ class ImmoFetch(threading.Thread):
                 retour = 'inserted'
             else:
                 logging.error("Impossible d'inserer une annonce dans la db, Id = %s" % obj['id'])
-
+        # ---- Deja dans la DB, Update necessaire ?
         else:
-            # ----- UPDATE ? ---
             #--- S'il y a deja un id dans la base : on merge certains champs comme le last time seen
-            # on mergera toujours le last_seen, mais ce n'est pas un update en tant que tel : l'annonce est la meme
+            # on mergera toujours le last_seen, mais ce n'est pas un update en tant que tel
             tmpAnnonceInDB['ts_lastfetched'] = obj['ts_lastfetched']
             # Nouveau prix ?
             if tmpAnnonceInDB['price'] != obj['price'] :
@@ -189,7 +189,7 @@ class ImmoFetch(threading.Thread):
                 tmpAnnonceInDB['ts_updated']            = obj['ts_lastfetched']
                 retour = 'updated'
 
-            # Nouvelle images ?
+            # Nouvelles images ?
             if len(tmpAnnonceInDB['url_images']) != len(obj['url_images']) :
                 tmpHistoKey                      = obj['ts_lastfetched'].run(ImmoFetch.our_ops.rdb_get_lock()).strftime('%y%m%d-%H%M%S') + " - Images"
                 ImmoFetch.our_ops.rdb_release()
@@ -241,11 +241,11 @@ class ImmoFetch(threading.Thread):
                 liste_urls = ImmoFetch.zil_get_urls_annonces_from_query(urlq)
             elif self.my_name == 'sudisere' :
                 liste_urls = ImmoFetch.sudi_get_urls_annonces_from_query(urlq)
-            elif self.my_name == 'seloger' :
-                pass
             elif self.my_name == 'briseline' :
-                pass
-            elif self.my_name == 'propprivees' :
+                liste_urls = ImmoFetch.brisel_get_urls_annonces_from_query(urlq)
+            elif self.my_name == 'prorural' :
+                liste_urls = ImmoFetch.prorural_get_urls_annonces_from_query(urlq)
+            elif self.my_name == 'seloger' :
                 pass
             else :
                 logging.error("Identite non reconnue : %s" % urlq)
@@ -254,7 +254,7 @@ class ImmoFetch(threading.Thread):
                 logging.warning("%s | Requete ne renvoie aucune annonce : %s" % (self.my_name, urlq))
             else :
                 liste_urls_annonces = liste_urls_annonces + liste_urls
-            logging.log(logging.INFO-2, "%s Query fetched %d|%d NB = %d" % (self.my_name, tmpIndex, len(liste_urls_queries), len(liste_urls)))
+            logging.log(logging.INFO-2, "%s Query fetched %d|%d NB items = %d" % (self.my_name, tmpIndex, len(liste_urls_queries), len(liste_urls)))
         liste_urls_annonces = list(set(liste_urls_annonces))  # remove duplicates
         nb_anno_listed = len(liste_urls_annonces)
 
@@ -274,19 +274,23 @@ class ImmoFetch(threading.Thread):
                 new_item = ImmoFetch.zil_parse_annonce_from_url(urla)
             elif self.my_name == 'sudisere' :
                 new_item = ImmoFetch.sudi_parse_annonce_from_url(urla)
-            elif self.my_name == 'seloger' :
-                pass
             elif self.my_name == 'briseline' :
-                pass
-            elif self.my_name == 'propprivees' :
+                new_item = ImmoFetch.brisel_parse_annonce_from_url(urla)
+            elif self.my_name == 'prorural' :
+                new_item = ImmoFetch.prorural_parse_annonce_from_url(urla)
+            elif self.my_name == 'seloger' :
                 pass
             else :
                 logging.error("Identite non reconnue : %s" % urla)
             logging.log(logging.INFO-2, "%s Annon fetched %d|%d : %s" % (self.my_name, tmpIndex, len(liste_urls_annonces), str(new_item)))
             if len(new_item) > 0 :
                 if len(liste_villes_exclure) > 0 :
+                    # --- Filtrage sur les noms de villes
                     if f4s.strMatchAny(liste_villes_exclure, new_item['localite_stz']) or f4s.strMatchAny(liste_villes_exclure, new_item['codepostal']):
                         nb_anno_discarded += 1
+                    # --- Filtrage sur la validite de chaque item
+                    elif len("%s%s" % (new_item['title'],new_item['description']))< 10 or len(new_item['url_annonce']) < 5 or ('inconnu' in new_item['localite_stz'] and 'inconnu' in new_item['codepostal']) :
+                        logging.error("Article semble incorrect, discarded : %s" % str(new_item))
                     else :
                         liste_items_for_rdb.append(new_item)
         nb_anno_parsed_ok = len(liste_items_for_rdb)
@@ -296,15 +300,12 @@ class ImmoFetch(threading.Thread):
         tmpIndex=0
         for anno in liste_items_for_rdb :
             tmpIndex += 1
-
-            # TODO : verification des champs avant insert
-
             resultat = ImmoFetch.push_item_to_rdb(anno)
             if resultat == 'inserted' :
                 logging.log(logging.INFO-2, "%s Added in DB %d|%d : %s | %s" % (self.my_name, tmpIndex, len(liste_items_for_rdb), anno['title'], anno['id']))
                 nb_anno_inserted_in_db += 1
             elif resultat == 'updated' :
-                logging.log(logging.INFO-2, "%s Updated in in DB %d|%d : %s | %s" % (self.my_name, tmpIndex, len(liste_items_for_rdb), anno['title'], anno['id']))
+                logging.log(logging.INFO-2, "%s Updated in DB %d|%d : %s | %s" % (self.my_name, tmpIndex, len(liste_items_for_rdb), anno['title'], anno['id']))
                 nb_anno_updated_in_db += 1
 
         # -- Log d'activite
@@ -376,7 +377,8 @@ class ImmoFetch(threading.Thread):
             atitre = f4s.strCleanSanitize(a[0].text, phtmlunescape=True, pLignesTabsGuillemets=True, pNormalizeASCII=False, pEnleveSignesSpeciaux=False, pLettreDigitPointTiret=False, pLetterDigitTiretOnly=False, pBagOfWords=False).lower()
             atitre = f4s.strMultiReplace([("a vendre", ""), ("maison / villa", "maison")], atitre)
             atitre = re.sub(u" +", " ", atitre).strip()
-            obj['title'] = atitre.title()
+            titl = atitre.title()
+            obj['title'] = titl[:1].capitalize() + titl[1:].lower()
             obj['title_stz'] = f4s.cleanOnlyLetterDigit(obj['title']).lower()
             if 'maison' in obj['title_stz'] :
                 obj['type2bien'] = 'maison'
@@ -445,14 +447,15 @@ class ImmoFetch(threading.Thread):
                         localtz = timezone('Europe/Paris')
                         obj['ts_published'] = r.iso8601(localtz.localize(tmpDatetime).isoformat())
 
-            #-- uploaded by
-            obj['uploadby'] = 'office notarial'
-
             #-- images
             obj['url_images'] = list()
             for im in list(soup.select("section > div.diaporama > div.thumbnail > div > div > div > img")) :
                 if im.get('src').startswith('http') :
                     obj['url_images'].append(im.get('src'))
+            obj['url_images'] = list(set(obj['url_images']))
+
+            #-- uploaded by
+            obj['uploadby'] = 'Notaire'
 
             #-- Sources
             obj['sources'] = ['immo-notaires']
@@ -495,7 +498,8 @@ class ImmoFetch(threading.Thread):
             obj['url_annonce'] = urla
             try :
                 tmpTitre = soup.select('section[id="adview"] h1[class="no-border"]')[0].decode()
-                obj['title']     = f4s.cleanLangueFr(tmpTitre)
+                titl     = f4s.cleanLangueFr(tmpTitre)
+                obj['title'] = titl[:1].capitalize() + titl[1:].lower()
                 obj['title_stz'] = f4s.cleanOnlyLetterDigit(tmpTitre)
             except :
                 logging.warning("LBC : Impossible de caster le titre sur url=%s" % urla)
@@ -544,7 +548,7 @@ class ImmoFetch(threading.Thread):
                     else :
                         logging.debug("LBC : Impossible de caster %s sur url=%s" % (cle, urla))
 
-            obj['uploadby'] = "LBC"
+            obj['uploadby'] = "inconnu"
             tmpListe = soup.find_all("a", attrs={"class":"uppercase bold trackable"})
             if len(tmpListe) > 0 :
                 obj['uploadby'] = f4s.cleanOnlyLetterDigit(tmpListe[0].text)
@@ -584,6 +588,8 @@ class ImmoFetch(threading.Thread):
                         chaine2 = 'http:' + chaine[1:-1]    # pour enlever les "" autour & ajouter l'url complete
                         if chaine2 not in obj['url_images']:
                             obj['url_images'].append(chaine2)
+            obj['url_images'] = list(set(obj['url_images']))
+
             # -- sources
             obj['sources'] = ['leboncoin']
 
@@ -623,7 +629,8 @@ class ImmoFetch(threading.Thread):
             obj['url_annonce'] = urla
             try :
                 tmpTit = soup.select("html > body > div > div > div > div > div > h1")[0].decode()
-                obj['title']     = f4s.cleanLangueFr(tmpTit)
+                titl         = f4s.cleanLangueFr(tmpTit)
+                obj['title'] = titl[:1].capitalize() + titl[1:].lower()
                 obj['title_stz'] = f4s.cleanOnlyLetterDigit(tmpTit)
             except :
                 logging.warning("Zil : Impossible de caster le titre sur url=%s" % urla)
@@ -679,7 +686,7 @@ class ImmoFetch(threading.Thread):
                         tmpV = str(ul.contents[0].text).replace("@", "a")
                         obj['uploadby'] = f4s.cleanOnlyLetterDigit(tmpV)
                     except :
-                        obj['uploadby'] = "zilek"
+                        obj['uploadby'] = "Agence"
 
             # --- TYPE DE BIEN
             obj['type2bien'] = 'inconnu'
@@ -703,6 +710,7 @@ class ImmoFetch(threading.Thread):
                         obj['url_images'].append(tmpUrl)
             except :
                 logging.warning("Zil : Impossible de recup les images for %s" % urla)
+            obj['url_images'] = list(set(obj['url_images']))
 
             # -- sources
             obj['sources'] = ['zilek']
@@ -725,9 +733,8 @@ class ImmoFetch(threading.Thread):
         except Exception as exp :
             logging.critical('Exception Query SUDI : URL = %s | E = %s' % (urlq, str(exp)))
 
-        lis_urls = list(set(lis_urls))  # remove duplicates
+        # lis_urls = list(set(lis_urls))  # remove duplicates
         return lis_urls
-
     @staticmethod
     def sudi_parse_annonce_from_url(urla):
         obj = ImmoFetch.get_empty_obj()
@@ -742,7 +749,7 @@ class ImmoFetch(threading.Thread):
             try :
                 tmpT = soup.select("div section div div span.type")
                 if len(tmpT) > 0 :
-                    obj['type2bien'] = f4s.cleanOnlyLetterDigit(tmpT[0]).text
+                    obj['type2bien'] = f4s.cleanOnlyLetterDigit(tmpT[0].text)
             except :
                 pass
 
@@ -770,7 +777,8 @@ class ImmoFetch(threading.Thread):
             except Exception as e :
                 logging.warning('SUDI : Exception pour Prix %s | %s' % (urla, str(e)))
 
-            obj['title'] = obj['type2bien'] + " " + str(obj['localite_stz']).title() + " " + str(obj['price']) + " €"
+            titl = str(obj['type2bien'] + " " + str(obj['localite_stz']).title() + " " + str(obj['price']) + " €").strip()
+            obj['title'] = titl[:1].capitalize() + titl[1:].lower()
             obj['title_stz'] = f4s.cleanOnlyLetterDigit(obj['title'])
 
             try :
@@ -786,20 +794,234 @@ class ImmoFetch(threading.Thread):
             except Exception as e :
                 logging.debug('SUDI : Exception pour description %s | %s' % (urla, str(e)))
 
+            obj['url_images'] = list()
             try :
                 tmpImages = soup.select("div#bx-pager a img")
                 for img in tmpImages :
                     obj['url_images'].append(str(img['src']).split("?")[0])
             except Exception as e :
                 logging.warning('SUDI : Exception pour images %s | %s' % (urla, str(e)))
+            obj['url_images'] = list(set(obj['url_images']))
 
-            obj['uploadby'] = "SudIsere"
+            obj['uploadby'] = "Agence"
             obj['sources'] = ['sud-isere']
-
         return obj
 
-def launch_fetcher(nom_in_config, ops_ptr):
+    # ------------------------ BRISEL ------------------------
+    @staticmethod
+    def brisel_get_urls_annonces_from_query(urlq):
+        lis_urls = list()
+        try :
+            response = requests.get(urlq, timeout=30)
+            soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
+            for ref_immo in soup.select("div h2 a") :
+                if ref_immo.get('href', '') != '' :
+                    u = urllib.request.Request(urlq)
+                    url_host_full = str(u.type + "://" + u.host)
+                    tmpRef = ref_immo.get('href', '')
+                    tmpURLann = (url_host_full + tmpRef) if tmpRef.startswith('/') else (url_host_full + '/'+ tmpRef)
+                    lis_urls.append(tmpURLann)
+        except Exception as exp :
+            logging.critical('Exception Query BRISEL : URL = %s | E = %s' % (urlq, str(exp)))
+
+        lis_urls = list(set(lis_urls))  # remove duplicates
+        return lis_urls
+    @staticmethod
+    def brisel_parse_annonce_from_url(urla):
+        obj = ImmoFetch.get_empty_obj()
+        try :
+            response = requests.get(urla, timeout=30)
+            soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
+        except Exception as e :
+            logging.error("BRISEL : Page web non trouvee : %s | %s" % (urla, str(e)))
+        else :
+            obj['url_annonce'] = urla
+
+            try :
+                titl = f4s.cleanLangueFr(soup.select("div#page_title h1")[0].text)
+                obj['title'] = titl[:1].capitalize() + titl[1:].lower()
+                obj['title_stz'] = f4s.cleanOnlyLetterDigit(obj['title']).lower()
+            except Exception as e :
+                logging.warning('BRISEL : Exception pour Titre %s | %s' % (urla, str(e)))
+
+            try :
+                tprix = soup.select("div#size_auto table tr td")[0].text
+                obj['price'] = int("".join([c for c in tprix if c in string.digits]))
+            except Exception as e :
+                logging.warning('BRISEL : Exception pour Prix %s | %s' % (urla, str(e)))
+
+            try :
+                obj['description'] = f4s.cleanLangueFr(soup.select("div#details")[0].text)  # on va modifier ce champs plus bas
+            except Exception as e :
+                logging.debug('BRISEL : Exception pour Description %s | %s' % (urla, str(e)))
+
+            for letr in soup.select('div.overflow_y div.tech_detail tr') :
+                if len(letr.select('td')) > 1 :
+                    try :
+                        mgau = letr.select('td')[0]
+                        mdro = letr.select('td')[1]
+                        if 'ville' in str(mgau.text).lower() :
+                            try :
+                                obj['localite_stz'] = f4s.cleanMax(letr.select('span[itemprop="addressLocality"]')[0].text)
+                                tmpCP = letr.select('span.acc')[0].text
+                                obj['codepostal'] = "".join([c for c in tmpCP if c in string.digits])
+                            except Exception as e :
+                                logging.warning('BRISEL : Exception pour Ville et CP %s | %s' % (urla, str(e)))
+                        elif 'type' in str(mgau.text).lower() :
+                            if f4s.strMatchAny(['individ', 'jumele', 'mitoy'], mdro.text) :
+                                obj['type2bien'] = 'maison'
+                        elif 'surface' in str(mgau.text).lower() and not('surface au sol' in str(mgau.text).lower())  :
+                            tmpS = f4s.strCleanSanitize(mdro.text, phtmlunescape=True, pLignesTabsGuillemets=True, pNormalizeASCII=True, pEnleveSignesSpeciaux=True, pLettreDigitPointTiret=False, pLetterDigitTiretOnly=False, pBagOfWords=False)
+                            tmpS = tmpS.replace('m2','')
+                            if '.' in tmpS :
+                                tmpS = str(mdro.text).split('.')[0]
+                            elif ',' in tmpS :
+                                tmpS = str(mdro.text).split(',')[0]
+                            obj['surface'] = int("".join([c for c in tmpS if c in string.digits]))
+                        elif 'terrain' in str(mgau.text).lower() :
+                            tmpS = f4s.strCleanSanitize(mdro.text, phtmlunescape=True, pLignesTabsGuillemets=True, pNormalizeASCII=True, pEnleveSignesSpeciaux=True, pLettreDigitPointTiret=False, pLetterDigitTiretOnly=False, pBagOfWords=False)
+                            tmpS = tmpS.replace('m2','')
+                            if '.' in tmpS :
+                                tmpS = str(mdro.text).split('.')[0]
+                            elif ',' in tmpS :
+                                tmpS = str(mdro.text).split(',')[0]
+                            obj['surface_terrain'] = int("".join([c for c in tmpS if c in string.digits]))
+                        elif 'pieces' in f4s.cleanMax(mgau.text).lower() :
+                            obj['nbpieces'] = int("".join([c for c in f4s.cleanMax(mdro.text) if c in string.digits]))
+                        elif 'etat general' in f4s.cleanMax(mgau.text).lower() :
+                            obj['description'] += " " + f4s.cleanLangueFr(mdro.text)
+                    except Exception as e :
+                        logging.debug('BRISEL : Exception dans champs %s | %s' % (urla, str(e)))
+
+            obj['description_stz'] = f4s.cleanOnlyLetterDigit(obj['description'])  # la desc peut etre modifiee avec les champs
+
+            #-- images
+            obj['url_images'] = list()
+            try :
+                for im in list(soup.select("div#page_content div[itemscope] div#layerslider a img[src]")) :
+                    if im.get('src').startswith('http') :
+                        obj['url_images'].append(str(im.get('src')).split("?")[0])
+            except Exception as e :
+                logging.warning('BRISEL : Exception dans images %s | %s' % (urla, str(e)))
+            obj['url_images'] = list(set(obj['url_images']))
+
+            obj['uploadby'] = "Agence"
+            obj['sources'] = ['Briseline']
+        return obj
+
+    # ------------------------ PRORURAL ------------------------
+    @staticmethod
+    def prorural_get_urls_annonces_from_query(urlq):
+        lis_urls = list()
+        try :
+            response = requests.get(urlq, timeout=30)
+            soup = BeautifulSoup(response.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
+            for ref_immo in soup.select("div.conteneur_liste_auto div.detail_offre_ligneload div.img_offre a[href]") :
+                if ref_immo.get('href', '') != '' :
+                    u = urllib.request.Request(urlq)
+                    url_host_full = str(u.type + "://" + u.host) + "/fr"  # Mano
+                    tmpRef = ref_immo.get('href', '')
+                    tmpURLann = (url_host_full + tmpRef) if tmpRef.startswith('/') else (url_host_full + '/'+ tmpRef)
+                    lis_urls.append(tmpURLann)
+        except Exception as exp :
+            logging.critical('Exception Query PRORURAL : URL = %s | E = %s' % (urlq, str(exp)))
+
+        lis_urls = list(set(lis_urls))  # remove duplicates
+        return lis_urls
+    @staticmethod
+    def prorural_parse_annonce_from_url(urla):
+        obj = ImmoFetch.get_empty_obj()
+        try :
+            #-- Rendering in headless browser (playing JS)
+            ip_splash = ImmoFetch.our_ops.cfg.get('splashserver') or '127.0.0.1'
+            splash_url = "http://" + ip_splash + ":8050/render.html"
+            splash_params = {'url': urla, 'timeout': 45, 'resource_timeout' : 30, 'images' : 1, 'expand' : 1, 'wait':10 }
+            resp = requests.get(splash_url, params=splash_params, timeout=60)
+            #-- Scraping the html page
+            soup = BeautifulSoup(resp.content, "html.parser", from_encoding='utf-8', exclude_encodings=["iso-8859-2"])
+        except Exception as e :
+            logging.error("PRORURAL : Page web non trouvee : %s | %s" % (urla, str(e)))
+        else :
+            obj['url_annonce'] = urla
+            try :
+                titl = f4s.cleanLangueFr(soup.select("div.conteneurGeneral div.colonne_droite div h1")[0].text)
+                obj['title'] = titl[:1].capitalize() + titl[1:].lower()
+                obj['title_stz'] = f4s.cleanOnlyLetterDigit(obj['title']).lower()
+            except Exception as e :
+                logging.warning('PRORURAL : Exception pour Titre %s | %s' % (urla, str(e)))
+
+            try :
+                tprix = soup.select("div.conteneurGeneral div.colonne_droite div.infoPrincipale span.libChpOffre.prix span.valChpOffre.prix")[0].text
+                obj['price'] = int("".join([c for c in tprix if c in string.digits]))
+            except Exception as e :
+                logging.warning('PRORURAL : Exception pour Prix %s | %s' % (urla, str(e)))
+
+            bclSituationDone=False
+            for letr in soup.select("div.conteneurGeneral div.colonne_droite div.infoPrincipale span.libChpOffre") :
+                try :
+                    gauc = f4s.cleanMax(letr.get_text().split(":")[0])
+                    droi = letr.select("span")[0].get_text()
+                    if 'situation' in gauc :
+                        # besoin parser une explication, pas de champs
+                        tmpLieu = f4s.cleanMax(droi)
+                        tmpL2 = "".join([c for c in tmpLieu if c not in string.digits])
+                        bow = tmpL2.split(" ")
+                        bow2 = [c for c in bow if len(c)>4]
+                        for mot in bow2 :
+                            if mot in ImmoFetch.our_villenoms :
+                                obj['localite_stz'] = mot
+                                obj['codepostal'] = ImmoFetch.our_ville2codep[mot]
+                                bclSituationDone = True
+                                break
+                    elif 'departement' in gauc :
+                        if not bclSituationDone :
+                            # -- lieu pas complete, on met au moins le dept
+                            dept = f4s.cleanMax(droi)
+                            if f4s.strMatchAny(['isere', '38'], dept) :
+                                obj['localite_stz'] = 'isere'
+                                obj['codepostal'] = '38'
+                            elif f4s.strMatchAny(['savoie', '73'], dept) :
+                                obj['localite_stz'] = 'savoie'
+                                obj['codepostal'] = '73'
+                            elif f4s.strMatchAny(['ardeche', '07'], dept) :
+                                obj['localite_stz'] = 'ardeche'
+                                obj['codepostal'] = '07'
+                            elif f4s.strMatchAny(['ain', '01'], dept) :
+                                obj['localite_stz'] = 'ain'
+                                obj['codepostal'] = '01'
+                    elif 'description' in gauc :
+                        obj['description'] += " " + f4s.cleanLangueFr(droi)
+                    elif 'habitation' in gauc :
+                        obj['description'] += " " + f4s.cleanLangueFr(droi)
+                    elif 'exploitation' in gauc :
+                        obj['description'] += " " + f4s.cleanLangueFr(droi)
+                    elif 'divers' in gauc :
+                        obj['description'] += " " + f4s.cleanLangueFr(droi)
+                except Exception as e :
+                    logging.debug('PRORURAL : Exception dans champs %s | %s' % (urla, str(e)))
+
+            obj['description'] = f4s.cleanLangueFr(obj['description'])
+            obj['description_stz'] = f4s.cleanOnlyLetterDigit(obj['description'])
+
+            #-- images
+            obj['url_images'] = list()
+            try :
+                for im in list(soup.select("img[rel]")) :
+                    if im.get('rel').startswith('http') :
+                        obj['url_images'].append(str(im.get('rel')))
+                obj['url_images'] = list(set(obj['url_images']))
+            except Exception as e :
+                logging.warning('PRORURAL : Exception dans images %s | %s' % (urla, str(e)))
+            obj['url_images'] = list(set(obj['url_images']))
+
+            obj['uploadby'] = "Agence"
+            obj['sources'] = ['Prop-Rurales']
+        return obj
+
+
+def launch_fetcher(nom_in_config, ops_ptr, wait_max_random=1800):
     ImmoFetch.init_static(ops_ptr)
+    time.sleep(random.randint(1,wait_max_random))
     tmpObj = ImmoFetch(nom_in_config)
     tmpObj.start()
 
@@ -823,30 +1045,12 @@ if __name__ == '__main__':
     if ops :
         for nom in ops.cfg.keys() :
             if type(ops.cfg[nom]) is type([]) :
-                # TODO : Lancement des fetchers a travers le schedule
-                if nom in ['notair', 'lbc', 'zilek', 'sudisere'] :
-                    launch_fetcher(nom, ops)
+                if nom in ['prorural', 'briseline', 'notair', 'lbc', 'zilek', 'sudisere'] :
+                    launch_fetcher(nom_in_config=nom, ops_ptr=ops, wait_max_random=20)
+                    # schedule.every(1).day.at('18:45').do(launch_fetcher, nom_in_config=nom, ops_ptr=ops, wait_max_random=1800) # seront lances a meme heure chaque jour, mais avec tempo random dans la fonction
                     nblaunch += 1
-                    # # -- Lancement : https://github.com/dbader/schedule/blob/master/schedule/__init__.py
-                    # ops1 = Ops4app(appli_uname='fetch.imm.lbc')
-                    # # launch_fetcher(ops1)
-                    # # exit()
-                    # schedule.every(ops1.config.get('period.in.days', 1)).day.at('19:02').do(launch_fetcher, ops_ptr=ops1)
-                    #
-                    # ops2 = Ops4app(appli_uname='fetch.imm.zil')
-                    # #launch_fetcher(ops2)
-                    # #exit()
-                    # schedule.every(ops2.config.get('period.in.days', 2)).days.at('19:03').do(launch_fetcher, ops_ptr=ops2)
-                    #
-                    # ops3 = Ops4app(appli_uname='fetch.imm.sudi')
-                    # # launch_fetcher(ops3)
-                    # # exit()
-                    # schedule.every(ops3.config.get('period.in.days', 2)).days.at('19:04').do(launch_fetcher, ops_ptr=ops3)
 
     if nblaunch>0 :
-        # TODO : mettre la boucle d'attente
-        # while True:
-        #     schedule.run_pending()
-        #     time.sleep(10)
-        pass
-
+        while True:
+            schedule.run_pending()
+            time.sleep(10)
